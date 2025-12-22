@@ -1822,6 +1822,89 @@ const App = {
         this.navigate('unit', { unitId: member.unitId });
     },
 
+    // Criar gráfico de comparação de unidades
+    createUnitComparisonChart(unitStats) {
+        const canvas = document.getElementById('unitComparisonChart');
+        if (!canvas || typeof Chart === 'undefined') return;
+
+        const ctx = canvas.getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: unitStats.map(u => u.name),
+                datasets: [{
+                    label: 'Média de Pontos',
+                    data: unitStats.map(u => u.average),
+                    backgroundColor: Theme.isDark() ? '#fbbf24' : '#d4af37',
+                    borderColor: Theme.isDark() ? '#f59e0b' : '#b8941f',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    title: {
+                        display: true,
+                        text: 'Comparação entre Unidades',
+                        color: Theme.isDark() ? '#f1f5f9' : '#1f2937',
+                        font: { size: 16, weight: 'bold' }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 140,
+                        ticks: { color: Theme.isDark() ? '#cbd5e1' : '#6b7280' },
+                        grid: { color: Theme.isDark() ? '#334155' : '#e5e7eb' }
+                    },
+                    x: {
+                        ticks: { color: Theme.isDark() ? '#cbd5e1' : '#6b7280' },
+                        grid: { display: false }
+                    }
+                }
+            }
+        });
+    },
+
+    // Exportar para Excel
+    async exportToExcel() {
+        if (typeof XLSX === 'undefined') {
+            Toast.show('Biblioteca de exportação não carregada', 'error');
+            return;
+        }
+
+        const todayKey = Utils.getTodayKey();
+        const units = await Store.getUnits();
+        const members = await Store.getMembers();
+        const allScores = await Store.getScores();
+        const scores = allScores[todayKey] || {};
+
+        const data = members.map(member => {
+            const score = scores[member.id];
+            const unit = units.find(u => u.id === member.unitId);
+            const points = score?.isAbsent ? 0 : Utils.countTotal(score);
+
+            return {
+                'Desbravador': member.name,
+                'Unidade': unit?.name || 'N/A',
+                'Pontos': points,
+                'Percentual': Utils.getPercentage(points) + '%',
+                'Status': !score ? 'Não avaliado' : score.isAbsent ? 'Ausente' : 'Presente'
+            };
+        });
+
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Relatório');
+
+        const filename = `relatorio_${todayKey}.xlsx`;
+        XLSX.writeFile(wb, filename);
+
+        Toast.show('Relatório exportado com sucesso!', 'success');
+    },
+
     async renderReport() {
         const todayKey = Utils.getTodayKey();
         const units = await Store.getUnits();
