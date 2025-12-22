@@ -155,6 +155,30 @@ const Cache = {
     }
 };
 
+// Sistema de Tema (Dark Mode)
+const Theme = {
+    current: localStorage.getItem('theme') || 'light',
+
+    init() {
+        this.apply(this.current);
+    },
+
+    toggle() {
+        this.current = this.current === 'light' ? 'dark' : 'light';
+        this.apply(this.current);
+        localStorage.setItem('theme', this.current);
+    },
+
+    apply(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+        this.current = theme;
+    },
+
+    isDark() {
+        return this.current === 'dark';
+    }
+};
+
 // Sistema de Navegação
 const Navigation = {
     history: [],
@@ -1200,6 +1224,68 @@ const App = {
         this.navigate('login');
     },
 
+    // Filtrar unidades/membros em tempo real
+    async filterUnits(query) {
+        const searchTerm = query.toLowerCase().trim();
+
+        if (!searchTerm) {
+            this.renderDashboard();
+            return;
+        }
+
+        const units = await Store.getUnits();
+        const members = await Store.getMembers();
+
+        const matchingMembers = members.filter(m =>
+            m.name.toLowerCase().includes(searchTerm)
+        );
+
+        const matchingUnitIds = [...new Set(matchingMembers.map(m => m.unitId))];
+        const filteredUnits = units.filter(u =>
+            u.name.toLowerCase().includes(searchTerm) || matchingUnitIds.includes(u.id)
+        );
+
+        const container = document.getElementById('units-container');
+        if (container) {
+            container.innerHTML = filteredUnits.length === 0
+                ? `<div class="text-center py-12">
+                    <i data-lucide="search-x" class="w-16 h-16 mx-auto text-slate-600 mb-4"></i>
+                    <p class="text-slate-400">Nenhum resultado para "${query}"</p>
+                   </div>`
+                : filteredUnits.map(unit => `
+                    <div onclick="App.navigate('unit', { unitId: '${unit.id}' })" 
+                         class="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-5 flex items-center justify-between cursor-pointer active:scale-[0.98] transition-all group hover:border-brand-navy/50">
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 rounded-full bg-slate-950 flex items-center justify-center text-brand-gold overflow-hidden border border-slate-800">
+                                ${unit.logo ? `<img src="${unit.logo}" class="w-full h-full object-cover" alt="${unit.name}">` : `<i data-lucide="flag" class="w-6 h-6"></i>`}
+                            </div>
+                            <span class="font-bold text-lg text-slate-200 group-hover:text-white transition-colors">${unit.name}</span>
+                        </div>
+                        <i data-lucide="chevron-right" class="w-6 h-6 text-slate-600 group-hover:text-brand-gold"></i>
+                    </div>
+                  `).join('');
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+    },
+
+    // Atalhos de teclado
+    setupKeyboardShortcuts() {
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+                e.preventDefault();
+                const search = document.getElementById('search-members');
+                if (search) search.focus();
+            }
+            if (e.key === 'Escape') {
+                const search = document.getElementById('search-members');
+                if (search && search.value) {
+                    search.value = '';
+                    this.filterUnits('');
+                }
+            }
+        });
+    },
+
     async renderDashboard() {
         Loading.show('Carregando unidades...');
 
@@ -1220,13 +1306,38 @@ const App = {
                                 <p class="text-sm font-bold text-white">${currentUser.name}</p>
                             </div>
                         </div>
-                        <button onclick="App.logout()" class="text-xs text-slate-500 hover:text-red-400 transition-colors">
-                            <i data-lucide="log-out" class="w-4 h-4"></i>
-                        </button>
+                        <div class="flex items-center gap-2">
+                            <button onclick="Theme.toggle(); App.renderDashboard();" 
+                                    class="p-2 rounded-lg hover:bg-white/10 transition-colors"
+                                    title="Alternar tema">
+                                <i data-lucide="${Theme.isDark() ? 'sun' : 'moon'}" class="w-5 h-5 text-brand-gold"></i>
+                            </button>
+                            <button onclick="App.logout()" class="p-2 rounded-lg hover:bg-white/10 transition-colors">
+                                <i data-lucide="log-out" class="w-4 h-4 text-slate-500"></i>
+                            </button>
+                        </div>
                     </div>
                 ` : ''}
                 
-                <div class="space-y-3">
+                <!-- Search Field -->
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i data-lucide="search" class="w-5 h-5 text-slate-400"></i>
+                    </div>
+                    <input type="text" 
+                           id="search-members"
+                           placeholder="Buscar desbravador... (Ctrl+K)"
+                           class="w-full pl-10 pr-10 py-3 bg-slate-900 border border-slate-800 rounded-xl 
+                                  text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 
+                                  focus:ring-brand-gold/50 focus:border-brand-gold transition-all"
+                           onkeyup="App.filterUnits(this.value)">
+                    <button onclick="document.getElementById('search-members').value=''; App.filterUnits('');" 
+                            class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-200">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+                
+                <div id="units-container" class="space-y-3">
                     ${units.map(unit => `
                         <div onclick="App.navigate('unit', { unitId: '${unit.id}' })" 
                              class="bg-slate-900 rounded-xl shadow-sm border border-slate-800 
