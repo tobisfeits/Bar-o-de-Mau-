@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Barão de Mauá - Sistema de Pontuação</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f8fafc;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .slide-in {
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Custom Toggle Switch */
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #10B981;
+        }
+
+        .toggle-checkbox:checked+.toggle-label {
+            background-color: #10B981;
+        }
+
+        input:checked+div {
+            background-color: #10B981;
+        }
+
+        input:checked+div>div {
+            transform: translateX(100%);
+        }
+    </style>
+</head>
+
+<body class="bg-slate-950 text-slate-100 h-screen flex flex-col overflow-hidden">
+
+    <!-- Header -->
+    <header
+        class="bg-brand-navy text-white p-4 shadow-lg flex items-center justify-between z-10 border-b border-white/10">
+        <div class="flex items-center gap-3">
+            <img src="logo_barao_maua.png" alt="Barão de Mauá" class="w-12 h-12 object-contain">
+            <div>
+                <h1 class="font-bold text-lg leading-tight">Barão de Mauá</h1>
+                <p class="text-xs text-slate-300">Sistema de Pontuação</p>
+            </div>
+        </div>
+        <button id="btn-report"
+            class="bg-brand-gold text-brand-navy px-3 py-1.5 rounded-full text-xs font-bold shadow hover:bg-yellow-400 transition-colors flex items-center gap-1">
+            <i data-lucide="bar-chart-2" class="w-4 h-4"></i> Relatório
+        </button>
+    </header>
+
+    <!-- Main Content Area -->
+    <main id="app-container" class="flex-1 overflow-y-auto p-4 pb-24 relative">
+        <!-- Views will be injected here -->
+    </main>
+
+    <!-- Bottom Navigation -->
+    <nav
+        class="bg-slate-900 border-t border-slate-800 p-2 flex justify-around items-center absolute bottom-0 w-full pb-6 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.3)]">
+        <button onclick="router.navigate('units')"
+            class="nav-btn flex flex-col items-center gap-1 p-2 text-slate-500 hover:text-brand-gold active:text-brand-gold transition-colors w-16">
+            <i data-lucide="users" class="w-6 h-6"></i>
+            <span class="text-[10px] font-medium">Unidades</span>
+        </button>
+        <button onclick="router.navigate('members')"
+            class="nav-btn flex flex-col items-center gap-1 p-2 text-slate-500 hover:text-brand-gold active:text-brand-gold transition-colors w-16">
+            <i data-lucide="user" class="w-6 h-6"></i>
+            <span class="text-[10px] font-medium">Membros</span>
+        </button>
+    </nav>
+
+    <!-- Modal Container -->
+    <div id="modal-overlay"
+        class="fixed inset-0 bg-black/50 z-50 update-hidden hidden flex items-center justify-center p-4 backdrop-blur-sm">
+        <div id="modal-content"
+            class="bg-white rounded-2xl w-full max-w-md shadow-2xl transform transition-all scale-95 opacity-0">
+            <!-- Modal content injected here -->
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+
+</html>
