@@ -2134,6 +2134,6 @@ const App = {
 // --- Inicialização ---
 window.App = App;
 
-document.addEventListener('DOMContentLoaded', () => {
-    App.init();
+document.addEventListener('DOMContentLoaded', async () => {
+    await App.init();
 });
