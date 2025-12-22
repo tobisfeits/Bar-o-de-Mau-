@@ -9,22 +9,40 @@
 // Configuração agora vem de variáveis de ambiente (config.js)
 // Para desenvolvimento local: copie .env.example para .env
 // Para Vercel: configure as variáveis no dashboard
-const SUPABASE_CONFIG = {
-    url: ENV_CONFIG.SUPABASE_URL,
-    key: ENV_CONFIG.SUPABASE_ANON_KEY,
-    enabled: ENV_CONFIG.SUPABASE_ENABLED
+
+let SUPABASE_CONFIG = {
+    url: '',
+    key: '',
+    enabled: false
 };
 
 // Inicializar cliente Supabase
 let supabaseClient = null;
-if (SUPABASE_CONFIG.enabled && typeof supabase !== 'undefined') {
-    supabaseClient = supabase.createClient(
-        SUPABASE_CONFIG.url,
-        SUPABASE_CONFIG.key
-    );
-    console.log('✅ Supabase conectado!', SUPABASE_CONFIG.url);
-} else {
-    console.log('⚠️ Usando localStorage (modo offline)');
+
+// Função assíncrona para inicializar o Supabase após carregar ENV_CONFIG
+async function initializeSupabase() {
+    // Aguardar ENV_CONFIG carregar
+    if (typeof ENV_CONFIG !== 'undefined' && ENV_CONFIG.init) {
+        await ENV_CONFIG.init();
+    }
+
+    // Atualizar configuração
+    SUPABASE_CONFIG = {
+        url: ENV_CONFIG.SUPABASE_URL,
+        key: ENV_CONFIG.SUPABASE_ANON_KEY,
+        enabled: ENV_CONFIG.SUPABASE_ENABLED
+    };
+
+    // Criar cliente se habilitado
+    if (SUPABASE_CONFIG.enabled && typeof supabase !== 'undefined') {
+        supabaseClient = supabase.createClient(
+            SUPABASE_CONFIG.url,
+            SUPABASE_CONFIG.key
+        );
+        console.log('✅ Supabase conectado!', SUPABASE_CONFIG.url);
+    } else {
+        console.log('⚠️ Usando localStorage (modo offline)');
+    }
 }
 
 // Helper para URLs do Storage
@@ -497,9 +515,10 @@ const Store = {
         localStorage.setItem(key, JSON.stringify(value));
     },
 
-    init() {
+    async init() {
         // Inicializar com dados padrão se vazio
-        if (this.getUnits().length === 0) {
+        const units = await this.getUnits();
+        if (units.length === 0) {
             this.seedDefaultData();
         }
     },
@@ -831,13 +850,17 @@ const App = {
     sessionTimeout: null,
     SESSION_DURATION: 10 * 60 * 1000, // 10 minutos em milissegundos
 
-    init() {
+    async init() {
         if (!this.mountPoint) {
             console.error('App container not found');
             return;
         }
 
-        Store.init();
+        // Inicializar Supabase primeiro
+        await initializeSupabase();
+
+        // Depois inicializar Store
+        await Store.init();
 
         // Verificar autenticação
         const auth = localStorage.getItem('cd_auth');

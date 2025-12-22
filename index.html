@@ -39,15 +39,6 @@
 
     <!-- Main Application Script -->
     <script src="app.js"></script>
-
-    <!-- Initialize app after config is loaded -->
-    <script>
-            // Wait for config to initialize, then start the app
-            (async () => {
-                await ENV_CONFIG.init();
-                // App will auto-initialize when DOM is ready
-            })();
-    </script>
 </body>
 
 </html>
