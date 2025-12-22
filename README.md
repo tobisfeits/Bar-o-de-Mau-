@@ -1,6 +1,8 @@
-# 🎯 Desbravadores - Sistema de Pontuação
+# 🎯 Sistema de Pontuação - Barão de Mauá
 
-Sistema de pontuação para o Clube de Desbravadores Barão de Mauá.
+Sistema completo de pontuação para o Clube de Desbravadores Barão de Mauá, com suporte offline e sincronização com Supabase.
+
+<!-- Deploy: 2025-12-22 -->
 
 ## 🚀 Tecnologias
 
