@@ -1522,6 +1522,9 @@ const App = {
             const currentUser = Store.getCurrentUser();
             const userInfo = RBAC.getUserDisplayInfo();
 
+            // Check for birthdays
+            const birthdays = await this.checkBirthdays();
+
             const html = `
             <div class="slide-in space-y-4">
                 ${currentUser ? `
@@ -1537,6 +1540,15 @@ const App = {
                             </div>
                         </div>
                         <div class="flex items-center gap-2">
+                            ${RBAC.isSuperAdmin() ? `
+                                <button onclick="App.runUnitClassification()" 
+                                        class="px-3 py-2 rounded-lg bg-brand-gold/20 hover:bg-brand-gold/30 
+                                               text-brand-gold transition-colors flex items-center gap-2"
+                                        title="Executar classificação automática de unidades">
+                                    <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                                    <span class="text-xs font-bold">Classificar</span>
+                                </button>
+                            ` : ''}
                             <button onclick="Theme.toggle(); App.renderDashboard();" 
                                     class="p-2 rounded-lg hover:bg-white/10 transition-colors"
                                     title="Alternar tema">
@@ -1548,6 +1560,8 @@ const App = {
                         </div>
                     </div>
                 ` : ''}
+                
+                ${birthdays && birthdays.length > 0 ? this.renderBirthdayBanner(birthdays) : ''}
                 
                 <!-- Search Field -->
                 <div class="relative">
@@ -2304,6 +2318,115 @@ const App = {
         this.mountPoint.innerHTML = html;
         if (typeof lucide !== 'undefined') lucide.createIcons();
         this.toggleNavigation(false);
+    },
+
+    // --- Birthday Alert System ---
+    async checkBirthdays() {
+        if (!DataAdapter.useSupabase()) {
+            return [];
+        }
+
+        try {
+            const { data, error } = await supabaseClient
+                .rpc('get_birthday_alerts');
+
+            if (error) {
+                console.error('Error fetching birthdays:', error);
+                return [];
+            }
+
+            return data || [];
+        } catch (error) {
+            console.error('Error in checkBirthdays:', error);
+            return [];
+        }
+    },
+
+    renderBirthdayBanner(birthdays) {
+        return `
+            <div class="bg-gradient-to-r from-pink-500/20 to-purple-500/20 
+                        border border-pink-500/30 rounded-xl p-4 animate-fade-in">
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="w-10 h-10 rounded-full bg-pink-500/20 flex items-center justify-center">
+                        <i data-lucide="cake" class="w-6 h-6 text-pink-400"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-white text-lg">🎉 Aniversariantes de Hoje!</h3>
+                        <p class="text-xs text-pink-300">Parabéns aos nossos desbravadores!</p>
+                    </div>
+                </div>
+                <div class="space-y-2">
+                    ${birthdays.map(b => `
+                        <div class="flex items-center justify-between bg-slate-900/50 rounded-lg p-3">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 rounded-full bg-brand-gold/20 flex items-center justify-center">
+                                    <i data-lucide="user" class="w-4 h-4 text-brand-gold"></i>
+                                </div>
+                                <div>
+                                    <p class="text-white font-bold text-sm">${b.member_name}</p>
+                                    <p class="text-xs text-slate-400">${b.unit_name || 'Sem unidade'}</p>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-brand-gold font-bold text-lg">${b.new_age}</p>
+                                <p class="text-xs text-slate-500">anos</p>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    },
+
+    // --- Unit Classification ---
+    async runUnitClassification() {
+        if (!RBAC.isSuperAdmin()) {
+            Toast.show('Apenas administradores podem executar esta ação', 'error');
+            return;
+        }
+
+        const confirmed = confirm(
+            'Deseja executar a classificação automática de unidades?\n\n' +
+            'Esta ação irá mover membros entre unidades baseado em:\n' +
+            '- Idade (calculada em 30/06)\n' +
+            '- Sexo\n\n' +
+            'ATENÇÃO: Conselheiros NÃO serão movidos para Lokomotiva.\n\n' +
+            'Continuar?'
+        );
+
+        if (!confirmed) return;
+
+        Loading.show('Executando classificação...');
+
+        try {
+            if (!DataAdapter.useSupabase()) {
+                Toast.show('Esta funcionalidade requer conexão com Supabase', 'error');
+                return;
+            }
+
+            // Call the stored procedure
+            const { data, error } = await supabaseClient
+                .rpc('update_member_units');
+
+            if (error) {
+                console.error('Error running classification:', error);
+                Toast.show('Erro ao executar classificação: ' + error.message, 'error');
+                return;
+            }
+
+            Toast.show('Classificação executada com sucesso!', 'success');
+
+            // Refresh dashboard to show updated units
+            setTimeout(() => {
+                this.renderDashboard();
+            }, 1500);
+
+        } catch (error) {
+            console.error('Error in runUnitClassification:', error);
+            Toast.show('Erro ao executar classificação', 'error');
+        } finally {
+            Loading.hide();
+        }
     },
 
     toggleNavigation(show) {
