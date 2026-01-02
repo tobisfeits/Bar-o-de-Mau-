@@ -1581,6 +1581,7 @@ const App = {
                     </button>
                 </div>
                 
+                <!-- Units List (FIRST) -->
                 <div id="units-container" class="space-y-3">
                     ${units.map(unit => `
                         <div onclick="App.navigate('unit', { unitId: '${unit.id}' })" 
@@ -1608,6 +1609,7 @@ const App = {
                     `).join('')}
                 </div>
                 
+                <!-- Add Unit Button -->
                 <div class="pt-4">
                     <button onclick="App.addUnitPrompt()" 
                             class="w-full py-4 border-2 border-dashed border-slate-700 
@@ -1619,6 +1621,7 @@ const App = {
                     </button>
                 </div>
                 
+                <!-- Action Buttons (LAST - Ranking & Reports) -->
                 <div class="pt-8 border-t border-slate-800 mt-8 space-y-3 pb-20">
                     <button onclick="App.navigate('counselor-ranking')" 
                             class="w-full bg-gradient-to-r from-brand-gold/20 to-brand-gold/10 text-brand-gold border border-brand-gold/30 py-4 rounded-xl 
@@ -1638,6 +1641,7 @@ const App = {
                         RELATÓRIOS
                     </button>
                 </div>
+                
             </div>
         `;
 
