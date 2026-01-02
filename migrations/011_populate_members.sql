@@ -1,0 +1,106 @@
+-- Migration 011: Populate Members and Fix Unit Photos
+-- Created: 2026-01-02
+-- Description: Insert all members and update unit logo paths
+
+-- First, update unit logos to use placeholder/icon instead of missing photos
+UPDATE units SET logo = NULL WHERE id IN ('u1', 'u2', 'u3', 'u4', 'u5', 'u6');
+
+-- Now insert all members (68 total: 11 conselheiros + 46 desbravadores + 11 staff)
+INSERT INTO members (name, birth_date, gender, role, unit_id, is_counselor) VALUES
+-- CONSELHEIROS (11)
+('BIANCA VIEIRA AMORIM', '2003-07-06', 'F', 'CONSELHEIRO', 'u5', true),
+('DANIELA BEZERRA MARQUES', '1982-09-11', 'F', 'CONSELHEIRO', 'u1', true),
+('DEBORAH BARRINOVO MARTINS', '2002-08-01', 'F', 'CONSELHEIRO', 'u1', true),
+('EDUARDO MARQUES DE OLIVEIRA', '2004-07-02', 'M', 'CONSELHEIRO', 'u4', true),
+('EMILLY LIMA DE FRANCA', '2002-04-06', 'F', 'CONSELHEIRO', 'u1', true),
+('JANE VIRGÍNIA RAMOS SANTOS DE OLIVEIRA', '1982-10-23', 'F', 'CONSELHEIRO', 'u6', true),
+('LAODICÉIA GONÇALVES DIAS DE SOUZA', '1977-02-04', 'F', 'CONSELHEIRO', 'u3', true),
+('LARISSA FERREIRA CAMPOS', '2004-10-14', 'F', 'CONSELHEIRO', 'u5', true),
+('LUCAS DE ARAUJO TAVARES', '1995-06-11', 'M', 'CONSELHEIRO', 'u2', true),
+('LUISA GABRIELLA DE SOUSA SILVA', '2004-05-30', 'F', 'CONSELHEIRO', 'u3', true),
+('MARLON FERREIRA DA SILVA AMORIM', '1976-03-17', 'M', 'CONSELHEIRO', 'u2', true),
+
+-- DESBRAVADORES (46)
+('ANA CLARA DE JESUS PINTO DUARTE', '2015-05-22', 'F', 'DESBRAVADOR', 'u5', false),
+('ANA LUIZA FERREIRA ARRAIS', '2010-01-21', 'F', 'DESBRAVADOR', 'u1', false),
+('ARTHUR BUENO AMANCIO DA SILVA', '2011-02-01', 'M', 'DESBRAVADOR', 'u2', false),
+('ARTHUR DE JESUS PINTO DUARTE', '2013-08-22', 'M', 'DESBRAVADOR', 'u4', false),
+('CARLOS EDUARDO CARVALHO SILVA FILHO', '2009-07-30', 'M', 'DESBRAVADOR', 'u2', false),
+('DAVID DANIEL BEZERRA BARROSO', '2014-10-01', 'M', 'DESBRAVADOR', 'u4', false),
+('DAVID DANTAS DA SILVA', '2015-08-10', 'M', 'DESBRAVADOR', 'u4', false),
+('DIANA MENEZES DA SILVA', '2013-03-03', 'F', 'DESBRAVADOR', 'u3', false),
+('ERIK BUENO PINHEIRO', '2013-10-17', 'M', 'DESBRAVADOR', 'u4', false),
+('GABRIEL BUENO PINHEIRO', '2011-08-18', 'M', 'DESBRAVADOR', 'u2', false),
+('GIOVANNA RAPOSO SANTOS VIDAL', '2009-10-31', 'F', 'DESBRAVADOR', 'u1', false),
+('HELOYSA APARECIDA FERNANDES', '2013-05-03', 'F', 'DESBRAVADOR', 'u3', false),
+('ISABELA MENDES BISCAIA', '2014-10-27', 'F', 'DESBRAVADOR', 'u5', false),
+('ISABELLA FERREIRA CAMPOS', '2010-05-06', 'F', 'DESBRAVADOR', 'u1', false),
+('ITALO RAMOS GALÚCIO', '2012-04-22', 'M', 'DESBRAVADOR', 'u2', false),
+('JOSUÉ ARAUJO DE OLIVEIRA', '2010-03-03', 'M', 'DESBRAVADOR', 'u2', false),
+('JULIA DE SOUZA FEITOSA', '2010-08-28', 'F', 'DESBRAVADOR', 'u1', false),
+('KINÉ ROMERO SOW', '2014-08-22', 'F', 'DESBRAVADOR', 'u5', false),
+('LETÍCIA NUNES DE LIMA', '2013-05-25', 'F', 'DESBRAVADOR', 'u3', false),
+('MANUELA MARQUES DE OLIVEIRA', '2012-06-03', 'F', 'DESBRAVADOR', 'u3', false),
+('MARCELA DE OLIVEIRA MOTA', '2012-06-27', 'F', 'DESBRAVADOR', 'u3', false),
+('MARIA HELENA FERNANDES GONÇALVES', '2012-11-12', 'F', 'DESBRAVADOR', 'u3', false),
+('MATHEUS BARRINOVO MARTINS', '2013-08-19', 'M', 'DESBRAVADOR', 'u4', false),
+('NICOLLAS GABRIEL BARBOSA DE ALMEIDA', '2013-11-27', 'M', 'DESBRAVADOR', 'u4', false),
+('PEDRO HENRIQUE APOLINÁRIO FEITOSA', '2009-11-29', 'M', 'DESBRAVADOR', 'u2', false),
+('PIETRA GABRIELA VIEIRA DOS SANTOS', '2014-10-07', 'F', 'DESBRAVADOR', 'u5', false),
+('RAFAELLA BORGES DA SILVA', '2010-08-17', 'F', 'DESBRAVADOR', 'u1', false),
+('REBECCA BUENO AMANCIO DA SILVA', '2012-09-19', 'F', 'DESBRAVADOR', 'u3', false),
+('REVINE JHULE SANTOS DE OLIVEIRA', '2010-11-22', 'F', 'DESBRAVADOR', 'u1', false),
+('RICARDO DANIEL JORGE DA SILVA', '2014-03-31', 'M', 'DESBRAVADOR', 'u4', false),
+('TALINE RAMOS GALÚCIO', '2013-07-21', 'F', 'DESBRAVADOR', 'u3', false),
+('VITORIA MEL SANTANA DANTAS', '2011-03-15', 'F', 'DESBRAVADOR', 'u1', false),
+('YASMIM BORGES SILVA', '2013-09-05', 'F', 'DESBRAVADOR', 'u5', false),
+('JOHN RÉVISSON SANTOS DE OLIVEIRA', '2015-11-02', 'M', 'DESBRAVADOR', 'u4', false),
+('JULIA LACERDA PEIXOTO', '2015-07-29', 'F', 'DESBRAVADOR', 'u5', false),
+('LÍVIA COSTA SOUSA', '2015-11-14', 'F', 'DESBRAVADOR', 'u5', false),
+('LÍVIA ARAUJO DOS SANTOS', '2016-05-24', 'F', 'DESBRAVADOR', 'u5', false),
+('LORENA VERA DIAS', '2016-05-04', 'F', 'DESBRAVADOR', 'u5', false),
+('CATARINA GONÇALVES FEITOSA', '2016-02-22', 'F', 'DESBRAVADOR', 'u5', false),
+('JÚLIA CAROLINA PIRES LIMA', '2009-03-24', 'F', 'DESBRAVADOR', 'u1', false),
+('SOPHIA VICTORIA GUTIERREZ LIMA', '2012-10-21', 'F', 'DESBRAVADOR', 'u3', false),
+
+-- DIRETORES ASSOCIADOS (2)
+('TOBIAS FEITOSA DE MATOS', '1985-02-02', 'M', 'DIRETOR ASSOCIADO', 'u4', false),
+('VÂNIA VIEIRA SILVA AMORIM', '1973-04-16', 'F', 'DIRETOR ASSOCIADO', 'u6', false),
+
+-- DIRETOR DE CLUBE (1)
+('SILAS MELCHIOR DA SILVA MELO', '2002-06-06', 'M', 'DIRETOR DE CLUBE', 'u6', false),
+
+-- INSTRUTORES (7)
+('ANDRESSA VIEIRA AMORIM', '2007-03-18', 'F', 'INSTRUTOR', 'u6', false),
+('GUSTAVO MORAIS DOS SANTOS', '2009-03-08', 'M', 'INSTRUTOR', 'u6', false),
+('HELLEN CRISTINA BARBOSA DE ALMEIDA', '1983-10-15', 'F', 'INSTRUTOR', 'u6', false),
+('ROBSON DE ALMEIDA SILVA', '1982-10-19', 'M', 'INSTRUTOR', 'u6', false),
+('TANIA CRISTINA FERREIRA CAMPOS', '1969-06-29', 'F', 'INSTRUTOR', 'u6', false),
+('VICTOR LUIS BRITIS BEZERRIL', '2009-06-22', 'M', 'INSTRUTOR', 'u6', false),
+
+-- SECRETÁRIO DO CLUBE (1)
+('DIANE GONÇALVES DA SILVA FEITOSA', '1984-03-01', 'F', 'SECRETÁRIO DO CLUBE', 'u6', false)
+
+ON CONFLICT (name) 
+DO UPDATE SET
+    birth_date = EXCLUDED.birth_date,
+    gender = EXCLUDED.gender,
+    role = EXCLUDED.role,
+    unit_id = EXCLUDED.unit_id,
+    is_counselor = EXCLUDED.is_counselor;
+
+-- Verification queries
+SELECT COUNT(*) as total_members FROM members;
+
+SELECT 
+    u.name as unit_name,
+    COUNT(m.id) as member_count
+FROM units u
+LEFT JOIN members m ON u.id = m.unit_id
+GROUP BY u.id, u.name
+ORDER BY u.name;
+
+SELECT role, COUNT(*) as count
+FROM members
+GROUP BY role
+ORDER BY count DESC;
