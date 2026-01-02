@@ -1843,24 +1843,24 @@ const App = {
                     `).join('')}
                 </div>
                 
-                <div class="fixed bottom-6 left-4 right-4 flex flex-col gap-3">
+                <div class="fixed bottom-6 left-4 right-4 flex gap-3 justify-end">
                     <button onclick="App.saveCurrentScore('${memberId}')" 
-                            class="w-full py-4 rounded-xl font-bold text-white 
+                            class="w-14 h-14 rounded-full font-bold text-white 
                                    bg-brand-navy shadow-xl shadow-brand-navy/30 
-                                   flex items-center justify-center gap-2 
-                                   active:scale-95 transition-transform uppercase 
-                                   tracking-widest text-sm">
-                        Salvar Pontuação
+                                   flex items-center justify-center 
+                                   active:scale-95 transition-transform hover:bg-blue-900"
+                            title="Salvar Pontuação">
+                        <i data-lucide="save" class="w-6 h-6"></i>
                     </button>
                     
                     <button onclick="App.removeMemberPrompt('${memberId}')" 
-                            class="w-full py-3 rounded-xl font-bold text-red-400 
-                                   bg-red-900/20 border border-red-900/30 
-                                   flex items-center justify-center gap-2 
-                                   active:scale-95 transition-transform text-xs 
-                                   hover:bg-red-900/30">
-                        <i data-lucide="trash-2" class="w-4 h-4"></i>
-                        Remover Desbravador
+                            class="w-14 h-14 rounded-full font-bold text-red-400 
+                                   bg-red-900/20 border-2 border-red-900/30 
+                                   flex items-center justify-center 
+                                   active:scale-95 transition-transform 
+                                   hover:bg-red-900/30"
+                            title="Remover Desbravador">
+                        <i data-lucide="x" class="w-6 h-6"></i>
                     </button>
                 </div>
             </div>
