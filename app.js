@@ -1622,24 +1622,33 @@ const App = {
                 </div>
                 
                 <!-- Action Buttons (LAST - Ranking & Reports) -->
-                <div class="pt-8 border-t border-slate-800 mt-8 space-y-3 pb-20">
-                    <button onclick="App.navigate('counselor-ranking')" 
-                            class="w-full bg-gradient-to-r from-brand-gold/20 to-brand-gold/10 text-brand-gold border border-brand-gold/30 py-4 rounded-xl 
-                                   font-bold shadow-lg 
-                                   flex items-center justify-center gap-3 
-                                   active:scale-[0.98] transition-transform hover:from-brand-gold/30 hover:to-brand-gold/20">
-                        <i data-lucide="trophy" class="w-6 h-6"></i>
-                        RANKING DE CONSELHEIROS
+                <div class="pt-6 border-t border-slate-800 mt-6 pb-20">
+                    <button onclick="document.getElementById('extra-features').classList.toggle('hidden')" 
+                            class="w-full py-3 text-slate-400 hover:text-slate-200 text-sm font-medium 
+                                   flex items-center justify-center gap-2 transition-colors rounded-lg hover:bg-slate-900">
+                        <i data-lucide="more-horizontal" class="w-5 h-5"></i>
+                        <span>Mais Opções</span>
                     </button>
                     
-                    <button onclick="App.navigate('report')" 
-                            class="w-full bg-brand-navy text-white py-4 rounded-xl 
-                                   font-bold shadow-lg shadow-brand-navy/20 
-                                   flex items-center justify-center gap-3 
-                                   active:scale-[0.98] transition-transform">
-                        <i data-lucide="bar-chart-2" class="w-6 h-6"></i>
-                        RELATÓRIOS
-                    </button>
+                    <div id="extra-features" class="hidden space-y-3 mt-3">
+                        <button onclick="App.navigate('counselor-ranking')" 
+                                class="w-full bg-gradient-to-r from-brand-gold/20 to-brand-gold/10 text-brand-gold border border-brand-gold/30 py-4 rounded-xl 
+                                       font-bold shadow-lg 
+                                       flex items-center justify-center gap-3 
+                                       active:scale-[0.98] transition-transform hover:from-brand-gold/30 hover:to-brand-gold/20">
+                            <i data-lucide="trophy" class="w-6 h-6"></i>
+                            RANKING DE CONSELHEIROS
+                        </button>
+                        
+                        <button onclick="App.navigate('report')" 
+                                class="w-full bg-brand-navy text-white py-4 rounded-xl 
+                                       font-bold shadow-lg shadow-brand-navy/20 
+                                       flex items-center justify-center gap-3 
+                                       active:scale-[0.98] transition-transform">
+                            <i data-lucide="bar-chart-2" class="w-6 h-6"></i>
+                            RELATÓRIOS
+                        </button>
+                    </div>
                 </div>
                 
             </div>
