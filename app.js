@@ -1813,9 +1813,9 @@ const App = {
                 <!-- Header com Botão Voltar -->
                 <div class="flex items-center justify-between mb-4">
                     <button onclick="App.goBack()" 
-                            class="flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
-                        <i data-lucide="arrow-left" class="w-5 h-5"></i>
-                        <span class="font-bold">Voltar</span>
+                            class="flex items-center gap-1 text-slate-400 hover:text-white transition-colors text-sm">
+                        <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                        <span class="text-xs">Voltar</span>
                     </button>
                     <span class="text-brand-gold font-bold text-sm">${unit.name}</span>
                 </div>
@@ -2521,9 +2521,9 @@ const App = {
                 <!-- Header com Botão Voltar -->
                 <div class="flex items-center justify-between mb-4">
                     <button onclick="App.goBack()" 
-                            class="flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
-                        <i data-lucide="arrow-left" class="w-5 h-5"></i>
-                        <span class="font-bold">Voltar</span>
+                            class="flex items-center gap-1 text-slate-400 hover:text-white transition-colors text-sm">
+                        <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                        <span class="text-xs">Voltar</span>
                     </button>
                     <span class="text-brand-gold font-bold text-sm">${unit ? unit.name : ''}</span>
                 </div>
