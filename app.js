@@ -1880,19 +1880,19 @@ const App = {
                 <div class="fixed bottom-6 left-4 right-4 flex gap-3 justify-end">
                     <button onclick="App.saveCurrentScore('${memberId}')" 
                             class="w-14 h-14 rounded-full font-bold text-white 
-                                   bg-brand-navy shadow-xl shadow-brand-navy/30 
+                                   bg-blue-600 dark:bg-blue-500 shadow-xl shadow-blue-600/30 
                                    flex items-center justify-center 
-                                   active:scale-95 transition-transform hover:bg-blue-900"
+                                   active:scale-95 transition-all hover:bg-blue-700 dark:hover:bg-blue-400"
                             title="Salvar Pontuação">
                         <i data-lucide="save" class="w-6 h-6"></i>
                     </button>
                     
                     <button onclick="App.removeMemberPrompt('${memberId}')" 
-                            class="w-14 h-14 rounded-full font-bold text-red-400 
-                                   bg-red-900/20 border-2 border-red-900/30 
+                            class="w-14 h-14 rounded-full font-bold text-white
+                                   bg-red-600 dark:bg-red-500 shadow-xl shadow-red-600/30
                                    flex items-center justify-center 
-                                   active:scale-95 transition-transform 
-                                   hover:bg-red-900/30"
+                                   active:scale-95 transition-all 
+                                   hover:bg-red-700 dark:hover:bg-red-400"
                             title="Remover Desbravador">
                         <i data-lucide="x" class="w-6 h-6"></i>
                     </button>

@@ -55,6 +55,33 @@ body {
     min-height: 100vh;
 }
 
+/* Tailwind dark mode support */
+@media (prefers-color-scheme: dark) {
+    [data-theme="dark"] .dark\:bg-blue-500 {
+        background-color: #3b82f6;
+    }
+
+    [data-theme="dark"] .dark\:bg-blue-400 {
+        background-color: #60a5fa;
+    }
+
+    [data-theme="dark"] .dark\:bg-red-500 {
+        background-color: #ef4444;
+    }
+
+    [data-theme="dark"] .dark\:bg-red-400 {
+        background-color: #f87171;
+    }
+
+    [data-theme="dark"] .dark\:hover\:bg-blue-400:hover {
+        background-color: #60a5fa;
+    }
+
+    [data-theme="dark"] .dark\:hover\:bg-red-400:hover {
+        background-color: #f87171;
+    }
+}
+
 /* Smooth theme transitions */
 * {
     transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
