@@ -157,25 +157,59 @@ const Cache = {
 
 // Sistema de Tema (Dark Mode)
 const Theme = {
-    current: localStorage.getItem('theme') || 'light',
+    current: null,
 
     init() {
+        // Check if user has a saved preference
+        const savedTheme = localStorage.getItem('theme');
+
+        if (savedTheme) {
+            this.current = savedTheme;
+        } else {
+            // Auto-detect system preference
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            this.current = prefersDark ? 'dark' : 'light';
+        }
+
         this.apply(this.current);
+
+        // Listen for system theme changes
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+            // Only auto-switch if user hasn't manually set a preference
+            if (!localStorage.getItem('theme')) {
+                this.apply(e.matches ? 'dark' : 'light');
+            }
+        });
     },
 
     toggle() {
         this.current = this.current === 'light' ? 'dark' : 'light';
         this.apply(this.current);
         localStorage.setItem('theme', this.current);
+
+        // Show toast notification
+        if (window.Toast) {
+            Toast.show(`Modo ${this.current === 'dark' ? 'escuro' : 'claro'} ativado`, 'success');
+        }
     },
 
     apply(theme) {
         document.documentElement.setAttribute('data-theme', theme);
         this.current = theme;
+
+        // Update meta theme-color for mobile browsers
+        const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+        if (metaThemeColor) {
+            metaThemeColor.setAttribute('content', theme === 'dark' ? '#0f172a' : '#1e3a8a');
+        }
     },
 
     isDark() {
         return this.current === 'dark';
+    },
+
+    getIcon() {
+        return this.isDark() ? 'sun' : 'moon';
     }
 };
 
@@ -1552,7 +1586,7 @@ const App = {
                             <button onclick="Theme.toggle(); App.renderDashboard();" 
                                     class="p-2 rounded-lg hover:bg-white/10 transition-colors"
                                     title="Alternar tema">
-                                <i data-lucide="${Theme.isDark() ? 'sun' : 'moon'}" class="w-5 h-5 text-brand-gold"></i>
+                                <i data-lucide="${Theme.getIcon()}" class="w-5 h-5 text-brand-gold"></i>
                             </button>
                             <button onclick="App.logout()" class="p-2 rounded-lg hover:bg-white/10 transition-colors">
                                 <i data-lucide="log-out" class="w-4 h-4 text-slate-500"></i>
