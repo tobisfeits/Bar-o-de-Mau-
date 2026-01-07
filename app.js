@@ -1363,20 +1363,29 @@ const App = {
         }
     },
 
-    async loadUsersDropdown() {
-        try {
-            const select = document.getElementById('login-user');
-            if (!select) return;
 
-            // Buscar todos os usuários do banco
-            const { data: users, error } = await supabaseClient
+    async loadUsersDropdown() {
+        const select = document.getElementById('login-user');
+        if (!select) return;
+
+        try {
+            // Add timeout to prevent infinite loading
+            const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Timeout')), 5000)
+            );
+
+            const fetchPromise = supabaseClient
                 .from('app_users')
                 .select('id, name, role')
                 .order('name');
 
+            // Race between fetch and timeout
+            const { data: users, error } = await Promise.race([fetchPromise, timeoutPromise]);
+
             if (error) {
                 console.error('Erro ao carregar usuários:', error);
-                select.innerHTML = '<option value="">Erro ao carregar usuários</option>';
+                // Fallback to default users
+                this.populateDefaultUsers(select);
                 return;
             }
 
@@ -1392,8 +1401,28 @@ const App = {
             console.log(`✅ ${users.length} usuários carregados`);
         } catch (error) {
             console.error('Erro ao carregar dropdown:', error);
+            // Fallback to default users on any error
+            this.populateDefaultUsers(select);
         }
     },
+
+    populateDefaultUsers(select) {
+        console.log('⚠️ Usando lista padrão de usuários');
+        select.innerHTML = '<option value="">Selecione seu usuário</option>';
+        const defaultUsers = [
+            { id: 'u1', name: 'Diane' },
+            { id: 'u2', name: 'Silas' },
+            { id: 'u3', name: 'Vânia' },
+            { id: 'u4', name: 'Tobias' }
+        ];
+        defaultUsers.forEach(user => {
+            const option = document.createElement('option');
+            option.value = user.id;
+            option.textContent = user.name;
+            select.appendChild(option);
+        });
+    },
+
 
     showPasswordRecovery() {
         const userSelect = document.getElementById('login-user');
