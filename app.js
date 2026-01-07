@@ -1177,7 +1177,7 @@ const App = {
         this.logout();
     },
 
-    navigate(view, params = {}) {
+    async navigate(view, params = {}) {
         this.currentView = view;
 
         // Adicionar ao histórico de navegação
@@ -1189,7 +1189,7 @@ const App = {
 
         switch (view) {
             case 'login':
-                this.renderLogin();
+                await this.renderLogin();
                 break;
             case 'dashboard':
                 this.renderDashboard();
