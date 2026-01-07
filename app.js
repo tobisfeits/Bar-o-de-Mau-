@@ -1296,7 +1296,7 @@ const App = {
         );
     },
 
-    renderLogin() {
+    async renderLogin() {
         const html = `
             <div class="flex flex-col items-center justify-center h-full p-6 slide-in">
                 <div class="bg-slate-900 p-8 rounded-2xl shadow-xl w-full max-w-sm border border-slate-800">
@@ -1314,10 +1314,7 @@ const App = {
                                    class="w-full px-4 py-3 bg-slate-950 border-2 border-slate-700 rounded-xl 
                                           focus:outline-none focus:border-brand-gold 
                                           text-white font-bold transition-all appearance-none cursor-pointer">
-                                <option value="">Selecione seu usuário</option>
-                                ${CONFIG.USERS.map(u => `
-                                    <option value="${u.id}">${u.name}</option>
-                                `).join('')}
+                                <option value="">Carregando usuários...</option>
                             </select>
                         </div>
                         
@@ -1352,6 +1349,10 @@ const App = {
         `;
 
         this.mountPoint.innerHTML = html;
+        lucide.createIcons();
+
+        // Carregar usuários do banco de dados
+        await this.loadUsersDropdown();
         this.toggleNavigation(false);
 
         const passwordInput = document.getElementById('login-password');
@@ -1359,6 +1360,38 @@ const App = {
             passwordInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') this.login();
             });
+        }
+    },
+
+    async loadUsersDropdown() {
+        try {
+            const select = document.getElementById('login-user');
+            if (!select) return;
+
+            // Buscar todos os usuários do banco
+            const { data: users, error } = await supabaseClient
+                .from('app_users')
+                .select('id, name, role')
+                .order('name');
+
+            if (error) {
+                console.error('Erro ao carregar usuários:', error);
+                select.innerHTML = '<option value="">Erro ao carregar usuários</option>';
+                return;
+            }
+
+            // Popula o dropdown
+            select.innerHTML = '<option value="">Selecione seu usuário</option>';
+            users.forEach(user => {
+                const option = document.createElement('option');
+                option.value = user.id;
+                option.textContent = `${user.name}${user.role === 'super_admin' ? ' (Admin)' : ''}`;
+                select.appendChild(option);
+            });
+
+            console.log(`✅ ${users.length} usuários carregados`);
+        } catch (error) {
+            console.error('Erro ao carregar dropdown:', error);
         }
     },
 
@@ -1426,93 +1459,105 @@ const App = {
             return;
         }
 
-        // Buscar usuário selecionado
-        const user = CONFIG.USERS.find(u => u.id === selectedUserId);
-
-        if (!user) {
-            alert('Usuário não encontrado!');
-            return;
-        }
-
-        // Validar senha
-        if (user.pin.toLowerCase() !== password) {
-            alert('Senha incorreta! Tente novamente ou clique em "Esqueci minha senha".');
-            passwordInput.value = '';
-            passwordInput.focus();
-            return;
-        }
-
-        // Login bem-sucedido
-        Store.setCurrentUser(user);
-        localStorage.setItem('cd_auth', 'true');
-        this.isAuthenticated = true;
-
-        // Fetch RBAC data from Supabase
-        Loading.show('Carregando permissões...');
         try {
-            await RBAC.fetchUserData(user.name);
-            const userInfo = RBAC.getUserDisplayInfo();
-            if (userInfo) {
-                console.log(`✅ Login: ${userInfo.name} (${userInfo.roleLabel})`);
+            // Buscar usuário no banco de dados
+            const { data: users, error } = await supabaseClient
+                .from('app_users')
+                .select('*')
+                .eq('id', selectedUserId);
+
+            if (error) {
+                console.error('Erro ao buscar usuário:', error);
+                alert('Erro ao fazer login. Tente novamente.');
+                return;
             }
-        } catch (error) {
-            console.error('Error loading RBAC data:', error);
-            Toast.show('Aviso: Permissões não carregadas', 'warning');
-        } finally {
-            Loading.hide();
-        }
 
-        // Iniciar timeout de sessão e listeners de atividade
-        this.startSessionTimeout();
-        this.setupActivityListeners();
+            if (!users || users.length === 0) {
+                alert('Usuário não encontrado!');
+                return;
+            }
 
-        // Navegar para dashboard
-        this.navigate('dashboard');
-    },
+            const user = users[0];
 
-    logout() {
-        // Limpar timeout de sessão
-        if (this.sessionTimeout) {
-            clearTimeout(this.sessionTimeout);
-            this.sessionTimeout = null;
-        }
+            // Validar senha
+            if (user.pin.toLowerCase() !== password) {
+                alert('Senha incorreta! Tente novamente ou clique em "Esqueci minha senha".');
+                passwordInput.value = '';
+                passwordInput.focus();
+                return;
+            }
 
-        Store.clearCurrentUser();
-        RBAC.clearUserData(); // Clear RBAC data
-        localStorage.removeItem('cd_auth');
-        this.isAuthenticated = false;
-        this.navigate('login');
-    },
+            // Login bem-sucedido
+            Store.setCurrentUser(user);
+            localStorage.setItem('cd_auth', 'true');
+            this.isAuthenticated = true;
+
+            // Fetch RBAC data from Supabase
+            Loading.show('Carregando permissões...');
+            try {
+                await RBAC.fetchUserData(user.name);
+                const userInfo = RBAC.getUserDisplayInfo();
+                if (userInfo) {
+                    console.log(`✅ Login: ${userInfo.name} (${userInfo.roleLabel})`);
+                }
+            } catch (error) {
+                console.error('Error loading RBAC data:', error);
+                Toast.show('Aviso: Permissões não carregadas', 'warning');
+            } finally {
+                Loading.hide();
+            }
+
+            // Iniciar timeout de sessão e listeners de atividade
+            this.startSessionTimeout();
+            this.setupActivityListeners();
+
+            // Navegar para dashboard
+            this.navigate('dashboard');
+        },
+
+        logout() {
+            // Limpar timeout de sessão
+            if (this.sessionTimeout) {
+                clearTimeout(this.sessionTimeout);
+                this.sessionTimeout = null;
+            }
+
+            Store.clearCurrentUser();
+            RBAC.clearUserData(); // Clear RBAC data
+            localStorage.removeItem('cd_auth');
+            this.isAuthenticated = false;
+            this.navigate('login');
+        },
 
     // Filtrar unidades/membros em tempo real
     async filterUnits(query) {
-        const searchTerm = query.toLowerCase().trim();
+            const searchTerm = query.toLowerCase().trim();
 
-        if (!searchTerm) {
-            this.renderDashboard();
-            return;
-        }
+            if (!searchTerm) {
+                this.renderDashboard();
+                return;
+            }
 
-        const units = await Store.getUnits();
-        const members = await Store.getMembers();
+            const units = await Store.getUnits();
+            const members = await Store.getMembers();
 
-        const matchingMembers = members.filter(m =>
-            m.name.toLowerCase().includes(searchTerm)
-        );
+            const matchingMembers = members.filter(m =>
+                m.name.toLowerCase().includes(searchTerm)
+            );
 
-        const matchingUnitIds = [...new Set(matchingMembers.map(m => m.unitId))];
-        const filteredUnits = units.filter(u =>
-            u.name.toLowerCase().includes(searchTerm) || matchingUnitIds.includes(u.id)
-        );
+            const matchingUnitIds = [...new Set(matchingMembers.map(m => m.unitId))];
+            const filteredUnits = units.filter(u =>
+                u.name.toLowerCase().includes(searchTerm) || matchingUnitIds.includes(u.id)
+            );
 
-        const container = document.getElementById('units-container');
-        if (container) {
-            container.innerHTML = filteredUnits.length === 0
-                ? `<div class="text-center py-12">
+            const container = document.getElementById('units-container');
+            if (container) {
+                container.innerHTML = filteredUnits.length === 0
+                    ? `<div class="text-center py-12">
                     <i data-lucide="search-x" class="w-16 h-16 mx-auto text-slate-600 mb-4"></i>
                     <p class="text-slate-400">Nenhum resultado para "${query}"</p>
                    </div>`
-                : filteredUnits.map(unit => `
+                    : filteredUnits.map(unit => `
                     <div onclick="App.navigate('unit', { unitId: '${unit.id}' })" 
                          class="bg-slate-900 rounded-xl shadow-sm border border-slate-800 p-5 flex items-center justify-between cursor-pointer active:scale-[0.98] transition-all group hover:border-brand-navy/50">
                         <div class="flex items-center gap-4">
@@ -1524,42 +1569,42 @@ const App = {
                         <i data-lucide="chevron-right" class="w-6 h-6 text-slate-600 group-hover:text-brand-gold"></i>
                     </div>
                   `).join('');
-            if (typeof lucide !== 'undefined') lucide.createIcons();
-        }
-    },
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            }
+        },
 
-    // Atalhos de teclado
-    setupKeyboardShortcuts() {
-        document.addEventListener('keydown', (e) => {
-            if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-                e.preventDefault();
-                const search = document.getElementById('search-members');
-                if (search) search.focus();
-            }
-            if (e.key === 'Escape') {
-                const search = document.getElementById('search-members');
-                if (search && search.value) {
-                    search.value = '';
-                    this.filterUnits('');
+        // Atalhos de teclado
+        setupKeyboardShortcuts() {
+            document.addEventListener('keydown', (e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+                    e.preventDefault();
+                    const search = document.getElementById('search-members');
+                    if (search) search.focus();
                 }
-            }
-        });
-    },
+                if (e.key === 'Escape') {
+                    const search = document.getElementById('search-members');
+                    if (search && search.value) {
+                        search.value = '';
+                        this.filterUnits('');
+                    }
+                }
+            });
+        },
 
     async renderDashboard() {
-        Loading.show('Carregando unidades...');
+            Loading.show('Carregando unidades...');
 
-        try {
-            const allUnits = await Store.getUnits();
-            // Apply RBAC filtering
-            const units = RBAC.filterUnits(allUnits);
-            const currentUser = Store.getCurrentUser();
-            const userInfo = RBAC.getUserDisplayInfo();
+            try {
+                const allUnits = await Store.getUnits();
+                // Apply RBAC filtering
+                const units = RBAC.filterUnits(allUnits);
+                const currentUser = Store.getCurrentUser();
+                const userInfo = RBAC.getUserDisplayInfo();
 
-            // Check for birthdays
-            const birthdays = await this.checkBirthdays();
+                // Check for birthdays
+                const birthdays = await this.checkBirthdays();
 
-            const html = `
+                const html = `
             <div class="slide-in space-y-4">
                 ${currentUser ? `
                     <div class="bg-gradient-to-r from-brand-navy/20 to-transparent p-4 rounded-xl border border-brand-navy/30 flex items-center justify-between">
@@ -1628,9 +1673,9 @@ const App = {
                                             flex items-center justify-center text-brand-gold 
                                             overflow-hidden border border-slate-800">
                                     ${unit.logo
-                    ? `<img src="${unit.logo}" class="w-full h-full object-cover" alt="${unit.name}">`
-                    : `<i data-lucide="flag" class="w-6 h-6"></i>`
-                }
+                        ? `<img src="${unit.logo}" class="w-full h-full object-cover" alt="${unit.name}">`
+                        : `<i data-lucide="flag" class="w-6 h-6"></i>`
+                    }
                                 </div>
                                 <span class="font-bold text-lg text-slate-200 
                                              group-hover:text-white transition-colors">
@@ -1688,38 +1733,38 @@ const App = {
             </div>
         `;
 
-            this.mountPoint.innerHTML = html;
-            if (typeof lucide !== 'undefined') lucide.createIcons();
-            this.toggleNavigation(false);
-        } catch (error) {
-            console.error('Erro ao carregar dashboard:', error);
-            Toast.show('Erro ao carregar unidades', 'error');
-        } finally {
-            Loading.hide();
-        }
-    },
+                this.mountPoint.innerHTML = html;
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+                this.toggleNavigation(false);
+            } catch (error) {
+                console.error('Erro ao carregar dashboard:', error);
+                Toast.show('Erro ao carregar unidades', 'error');
+            } finally {
+                Loading.hide();
+            }
+        },
 
     async renderUnitDetails(unitId) {
-        const units = await Store.getUnits();
-        const unit = units.find(u => u.id === unitId);
-        if (!unit) {
-            this.navigate('dashboard');
-            return;
-        }
+            const units = await Store.getUnits();
+            const unit = units.find(u => u.id === unitId);
+            if (!unit) {
+                this.navigate('dashboard');
+                return;
+            }
 
-        // Check RBAC permissions
-        if (!RBAC.canViewUnit(unitId)) {
-            Toast.show('Você não tem permissão para visualizar esta unidade', 'error');
-            this.navigate('dashboard');
-            return;
-        }
+            // Check RBAC permissions
+            if (!RBAC.canViewUnit(unitId)) {
+                Toast.show('Você não tem permissão para visualizar esta unidade', 'error');
+                this.navigate('dashboard');
+                return;
+            }
 
-        const allMembers = await Store.getMembersByUnit(unitId);
-        // Apply RBAC filtering to members
-        const members = RBAC.filterMembers(allMembers);
+            const allMembers = await Store.getMembersByUnit(unitId);
+            // Apply RBAC filtering to members
+            const members = RBAC.filterMembers(allMembers);
 
 
-        const html = `
+            const html = `
             <div class="slide-in space-y-6 pb-20">
                 <div class="text-center border-b-2 border-dashed border-slate-700 pb-4 mt-2">
                     <h2 class="text-xl font-black text-white uppercase tracking-widest">${unit.name}</h2>
@@ -1734,14 +1779,14 @@ const App = {
                                     active:scale-[0.98] transition-all hover:bg-slate-800/50">
                             <div class="flex items-center gap-3">
                                 ${member.image
-                ? `<img src="${member.image}" 
+                    ? `<img src="${member.image}" 
                                            class="w-10 h-10 rounded-full object-cover border border-slate-700" 
                                            alt="${member.name}">`
-                : `<div class="w-10 h-10 rounded-full bg-slate-800 
+                    : `<div class="w-10 h-10 rounded-full bg-slate-800 
                                                 flex items-center justify-center text-slate-500">
                                             <i data-lucide="user" class="w-6 h-6"></i>
                                        </div>`
-            }
+                }
                                 <div class="flex flex-col">
                                     <div class="flex items-center gap-2">
                                         <span class="font-bold text-lg text-slate-200">${member.name}</span>
@@ -1778,37 +1823,37 @@ const App = {
             </div>
         `;
 
-        this.mountPoint.innerHTML = html;
-        if (typeof lucide !== 'undefined') lucide.createIcons();
-        this.toggleNavigation(false);
-    },
+            this.mountPoint.innerHTML = html;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            this.toggleNavigation(false);
+        },
 
     async renderScoring(memberId) {
-        const members = await Store.getMembers();
-        const member = members.find(m => m.id === memberId);
-        if (!member) {
-            this.navigate('dashboard');
-            return;
-        }
+            const members = await Store.getMembers();
+            const member = members.find(m => m.id === memberId);
+            if (!member) {
+                this.navigate('dashboard');
+                return;
+            }
 
-        // Check RBAC permissions
-        if (!RBAC.canEditMemberScore(member)) {
-            Toast.show('Você não tem permissão para editar pontuações deste membro', 'error');
-            this.navigate('dashboard');
-            return;
-        }
+            // Check RBAC permissions
+            if (!RBAC.canEditMemberScore(member)) {
+                Toast.show('Você não tem permissão para editar pontuações deste membro', 'error');
+                this.navigate('dashboard');
+                return;
+            }
 
-        const units = await Store.getUnits();
-        const unit = Utils.getUnitForMember(member, units);
-        if (!unit) {
-            this.navigate('dashboard');
-            return;
-        }
+            const units = await Store.getUnits();
+            const unit = Utils.getUnitForMember(member, units);
+            if (!unit) {
+                this.navigate('dashboard');
+                return;
+            }
 
-        const existingScore = await Store.getMemberScore(memberId, Utils.getTodayKey());
-        const currentTotal = Utils.countTotal(existingScore);
+            const existingScore = await Store.getMemberScore(memberId, Utils.getTodayKey());
+            const currentTotal = Utils.countTotal(existingScore);
 
-        const html = `
+            const html = `
             <div class="slide-in pb-24">
                 <!-- Header com Botão Voltar -->
                 <div class="flex items-center justify-between mb-4">
@@ -1823,11 +1868,11 @@ const App = {
                 <div class="text-center border-b-2 border-dashed border-slate-700 pb-4 mb-6">
                     <div class="flex flex-col items-center justify-center gap-2 mb-2">
                         ${member.image
-                ? `<img src="${member.image}" 
+                    ? `<img src="${member.image}" 
                                    class="w-24 h-24 rounded-full object-cover border-4 border-slate-800 shadow-lg" 
                                    alt="${member.name}">`
-                : ''
-            }
+                    : ''
+                }
                         <h2 class="text-2xl font-black text-white uppercase tracking-wide leading-none">
                             ${member.name}
                         </h2>
@@ -1931,97 +1976,97 @@ const App = {
             </style>
         `;
 
-        this.mountPoint.innerHTML = html;
-        this.toggleNavigation(false);
-        this.bindScoringEvents(memberId);
+            this.mountPoint.innerHTML = html;
+            this.toggleNavigation(false);
+            this.bindScoringEvents(memberId);
 
-        // Capturar estado inicial para detectar mudanças
-        this.initialScoringState = null;
-        setTimeout(() => {
-            this.initialScoringState = this.captureScoringState();
-        }, 100);
-    },
+            // Capturar estado inicial para detectar mudanças
+            this.initialScoringState = null;
+            setTimeout(() => {
+                this.initialScoringState = this.captureScoringState();
+            }, 100);
+        },
 
-    bindScoringEvents(memberId) {
-        const absentToggle = document.getElementById('toggle-absent');
-        const scoreToggles = document.querySelectorAll('.score-toggle');
-        const scoringList = document.getElementById('scoring-list');
+        bindScoringEvents(memberId) {
+            const absentToggle = document.getElementById('toggle-absent');
+            const scoreToggles = document.querySelectorAll('.score-toggle');
+            const scoringList = document.getElementById('scoring-list');
 
-        if (absentToggle) {
-            absentToggle.addEventListener('change', (e) => {
-                const isAbsent = e.target.checked;
+            if (absentToggle) {
+                absentToggle.addEventListener('change', (e) => {
+                    const isAbsent = e.target.checked;
 
-                if (isAbsent) {
-                    scoringList.classList.add('opacity-50', 'pointer-events-none');
-                    scoreToggles.forEach(toggle => toggle.checked = false);
-                } else {
-                    scoringList.classList.remove('opacity-50', 'pointer-events-none');
-                }
+                    if (isAbsent) {
+                        scoringList.classList.add('opacity-50', 'pointer-events-none');
+                        scoreToggles.forEach(toggle => toggle.checked = false);
+                    } else {
+                        scoringList.classList.remove('opacity-50', 'pointer-events-none');
+                    }
 
-                this.recalcScore();
+                    this.recalcScore();
+                });
+            }
+
+            scoreToggles.forEach(toggle => {
+                toggle.addEventListener('change', () => this.recalcScore());
             });
-        }
+        },
 
-        scoreToggles.forEach(toggle => {
-            toggle.addEventListener('change', () => this.recalcScore());
-        });
-    },
+        recalcScore() {
+            const toggles = document.querySelectorAll('.score-toggle:checked');
+            const absentToggle = document.getElementById('toggle-absent');
 
-    recalcScore() {
-        const toggles = document.querySelectorAll('.score-toggle:checked');
-        const absentToggle = document.getElementById('toggle-absent');
+            if (absentToggle && absentToggle.checked) {
+                const valEl = document.getElementById('score-text-val');
+                if (valEl) valEl.textContent = '0';
+                return;
+            }
 
-        if (absentToggle && absentToggle.checked) {
+            let total = 0;
+            toggles.forEach(toggle => {
+                const item = CONFIG.SCORE_ITEMS.find(i => i.id === toggle.dataset.id);
+                if (item) total += item.points;
+            });
+
             const valEl = document.getElementById('score-text-val');
-            if (valEl) valEl.textContent = '0';
-            return;
-        }
-
-        let total = 0;
-        toggles.forEach(toggle => {
-            const item = CONFIG.SCORE_ITEMS.find(i => i.id === toggle.dataset.id);
-            if (item) total += item.points;
-        });
-
-        const valEl = document.getElementById('score-text-val');
-        if (valEl) valEl.textContent = total;
-    },
+            if (valEl) valEl.textContent = total;
+        },
 
     async saveCurrentScore(memberId) {
-        const members = await Store.getMembers();
-        const member = members.find(m => m.id === memberId);
-        if (!member) return;
+            const members = await Store.getMembers();
+            const member = members.find(m => m.id === memberId);
+            if (!member) return;
 
-        const absentToggle = document.getElementById('toggle-absent');
-        const scoreToggles = document.querySelectorAll('.score-toggle');
+            const absentToggle = document.getElementById('toggle-absent');
+            const scoreToggles = document.querySelectorAll('.score-toggle');
 
-        const isAbsent = absentToggle ? absentToggle.checked : false;
-        const items = {};
+            const isAbsent = absentToggle ? absentToggle.checked : false;
+            const items = {};
 
-        if (!isAbsent) {
-            scoreToggles.forEach(toggle => {
-                items[toggle.dataset.id] = toggle.checked;
-            });
-        }
+            if (!isAbsent) {
+                scoreToggles.forEach(toggle => {
+                    items[toggle.dataset.id] = toggle.checked;
+                });
+            }
 
-        const scoreData = { isAbsent, items };
-        await Store.saveScore(memberId, Utils.getTodayKey(), scoreData);
+            const scoreData = { isAbsent, items };
+            await Store.saveScore(memberId, Utils.getTodayKey(), scoreData);
 
-        Toast.show('Pontuação salva com sucesso!', 'success');
-        this.navigate('unit', { unitId: member.unitId });
-    },
+            Toast.show('Pontuação salva com sucesso!', 'success');
+            this.navigate('unit', { unitId: member.unitId });
+        },
 
-    requestReAuth(callback) {
-        const currentUser = Store.getCurrentUser();
+        requestReAuth(callback) {
+            const currentUser = Store.getCurrentUser();
 
-        if (!currentUser) {
-            alert('Sessão inválida. Por favor, faça login novamente.');
-            this.logout();
-            return;
-        }
+            if (!currentUser) {
+                alert('Sessão inválida. Por favor, faça login novamente.');
+                this.logout();
+                return;
+            }
 
-        // Criar modal de re-autenticação
-        const modal = `
+            // Criar modal de re-autenticação
+            const modal = `
             <div class="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 animate-fade-in" id="reauth-modal">
                 <div class="bg-slate-900 p-8 rounded-2xl shadow-2xl max-w-sm w-full border border-slate-800" onclick="event.stopPropagation()">
                     <div class="text-center mb-6">
@@ -2057,223 +2102,223 @@ const App = {
             </div>
         `;
 
-        document.body.insertAdjacentHTML('beforeend', modal);
-        setTimeout(() => lucide.createIcons(), 100);
+            document.body.insertAdjacentHTML('beforeend', modal);
+            setTimeout(() => lucide.createIcons(), 100);
 
-        // Focar no input de senha
-        const passwordInput = document.getElementById('reauth-password');
-        if (passwordInput) {
-            passwordInput.focus();
-            passwordInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') this.confirmReAuth();
-            });
-        }
+            // Focar no input de senha
+            const passwordInput = document.getElementById('reauth-password');
+            if (passwordInput) {
+                passwordInput.focus();
+                passwordInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') this.confirmReAuth();
+                });
+            }
 
-        // Armazenar callback
-        this.reAuthCallback = callback;
-    },
+            // Armazenar callback
+            this.reAuthCallback = callback;
+        },
 
-    confirmReAuth() {
-        const currentUser = Store.getCurrentUser();
-        const passwordInput = document.getElementById('reauth-password');
+        confirmReAuth() {
+            const currentUser = Store.getCurrentUser();
+            const passwordInput = document.getElementById('reauth-password');
 
-        if (!passwordInput || !currentUser) {
-            this.cancelReAuth();
-            return;
-        }
+            if (!passwordInput || !currentUser) {
+                this.cancelReAuth();
+                return;
+            }
 
-        const password = passwordInput.value.trim().toLowerCase();
+            const password = passwordInput.value.trim().toLowerCase();
 
-        if (!password) {
-            alert('Por favor, digite sua senha!');
-            passwordInput.focus();
-            return;
-        }
+            if (!password) {
+                alert('Por favor, digite sua senha!');
+                passwordInput.focus();
+                return;
+            }
 
-        // Validar senha
-        if (currentUser.pin.toLowerCase() !== password) {
-            alert('Senha incorreta! Tente novamente.');
-            passwordInput.value = '';
-            passwordInput.focus();
-            return;
-        }
+            // Validar senha
+            if (currentUser.pin.toLowerCase() !== password) {
+                alert('Senha incorreta! Tente novamente.');
+                passwordInput.value = '';
+                passwordInput.focus();
+                return;
+            }
 
-        // Senha correta - fechar modal e executar callback
-        const modal = document.getElementById('reauth-modal');
-        if (modal) modal.remove();
+            // Senha correta - fechar modal e executar callback
+            const modal = document.getElementById('reauth-modal');
+            if (modal) modal.remove();
 
-        if (this.reAuthCallback) {
-            this.reAuthCallback(true);
-            this.reAuthCallback = null;
-        }
-    },
+            if (this.reAuthCallback) {
+                this.reAuthCallback(true);
+                this.reAuthCallback = null;
+            }
+        },
 
-    cancelReAuth() {
-        const modal = document.getElementById('reauth-modal');
-        if (modal) modal.remove();
+        cancelReAuth() {
+            const modal = document.getElementById('reauth-modal');
+            if (modal) modal.remove();
 
-        if (this.reAuthCallback) {
-            this.reAuthCallback(false);
-            this.reAuthCallback = null;
-        }
-    },
+            if (this.reAuthCallback) {
+                this.reAuthCallback(false);
+                this.reAuthCallback = null;
+            }
+        },
 
-    removeMemberPrompt(memberId) {
-        if (!confirm('Tem certeza que deseja remover este desbravador? Esta ação não pode ser desfeita.')) {
-            return;
-        }
+        removeMemberPrompt(memberId) {
+            if (!confirm('Tem certeza que deseja remover este desbravador? Esta ação não pode ser desfeita.')) {
+                return;
+            }
 
-        const member = Store.getMembers().find(m => m.id === memberId);
-        if (!member) return;
+            const member = Store.getMembers().find(m => m.id === memberId);
+            if (!member) return;
 
-        Store.deleteMember(memberId);
-        this.navigate('unit', { unitId: member.unitId });
-    },
+            Store.deleteMember(memberId);
+            this.navigate('unit', { unitId: member.unitId });
+        },
 
-    // Criar gráfico de comparação de unidades
-    createUnitComparisonChart(unitStats) {
-        const canvas = document.getElementById('unitComparisonChart');
-        if (!canvas || typeof Chart === 'undefined') return;
+        // Criar gráfico de comparação de unidades
+        createUnitComparisonChart(unitStats) {
+            const canvas = document.getElementById('unitComparisonChart');
+            if (!canvas || typeof Chart === 'undefined') return;
 
-        const ctx = canvas.getContext('2d');
-        new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: unitStats.map(u => u.name),
-                datasets: [{
-                    label: 'Média de Pontos',
-                    data: unitStats.map(u => u.average),
-                    backgroundColor: Theme.isDark() ? '#fbbf24' : '#d4af37',
-                    borderColor: Theme.isDark() ? '#f59e0b' : '#b8941f',
-                    borderWidth: 2
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    title: {
-                        display: true,
-                        text: 'Comparação entre Unidades',
-                        color: Theme.isDark() ? '#f1f5f9' : '#1f2937',
-                        font: { size: 16, weight: 'bold' }
-                    }
+            const ctx = canvas.getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: unitStats.map(u => u.name),
+                    datasets: [{
+                        label: 'Média de Pontos',
+                        data: unitStats.map(u => u.average),
+                        backgroundColor: Theme.isDark() ? '#fbbf24' : '#d4af37',
+                        borderColor: Theme.isDark() ? '#f59e0b' : '#b8941f',
+                        borderWidth: 2
+                    }]
                 },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        max: 140,
-                        ticks: { color: Theme.isDark() ? '#cbd5e1' : '#6b7280' },
-                        grid: { color: Theme.isDark() ? '#334155' : '#e5e7eb' }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        title: {
+                            display: true,
+                            text: 'Comparação entre Unidades',
+                            color: Theme.isDark() ? '#f1f5f9' : '#1f2937',
+                            font: { size: 16, weight: 'bold' }
+                        }
                     },
-                    x: {
-                        ticks: { color: Theme.isDark() ? '#cbd5e1' : '#6b7280' },
-                        grid: { display: false }
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 140,
+                            ticks: { color: Theme.isDark() ? '#cbd5e1' : '#6b7280' },
+                            grid: { color: Theme.isDark() ? '#334155' : '#e5e7eb' }
+                        },
+                        x: {
+                            ticks: { color: Theme.isDark() ? '#cbd5e1' : '#6b7280' },
+                            grid: { display: false }
+                        }
                     }
                 }
-            }
-        });
-    },
+            });
+        },
 
     // Exportar para Excel
     async exportToExcel() {
-        if (typeof XLSX === 'undefined') {
-            Toast.show('Biblioteca de exportação não carregada', 'error');
-            return;
-        }
+            if (typeof XLSX === 'undefined') {
+                Toast.show('Biblioteca de exportação não carregada', 'error');
+                return;
+            }
 
-        const todayKey = Utils.getTodayKey();
-        const units = await Store.getUnits();
-        const members = await Store.getMembers();
-        const allScores = await Store.getScores();
-        const scores = allScores[todayKey] || {};
+            const todayKey = Utils.getTodayKey();
+            const units = await Store.getUnits();
+            const members = await Store.getMembers();
+            const allScores = await Store.getScores();
+            const scores = allScores[todayKey] || {};
 
-        const data = members.map(member => {
-            const score = scores[member.id];
-            const unit = units.find(u => u.id === member.unitId);
-            const points = score?.isAbsent ? 0 : Utils.countTotal(score);
+            const data = members.map(member => {
+                const score = scores[member.id];
+                const unit = units.find(u => u.id === member.unitId);
+                const points = score?.isAbsent ? 0 : Utils.countTotal(score);
 
-            return {
-                'Desbravador': member.name,
-                'Unidade': unit?.name || 'N/A',
-                'Pontos': points,
-                'Percentual': Utils.getPercentage(points) + '%',
-                'Status': !score ? 'Não avaliado' : score.isAbsent ? 'Ausente' : 'Presente'
-            };
-        });
-
-        const ws = XLSX.utils.json_to_sheet(data);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Relatório');
-
-        const filename = `relatorio_${todayKey}.xlsx`;
-        XLSX.writeFile(wb, filename);
-
-        Toast.show('Relatório exportado com sucesso!', 'success');
-    },
-
-    async renderReport() {
-        const todayKey = Utils.getTodayKey();
-        const units = await Store.getUnits();
-        const members = await Store.getMembers();
-        const allScores = await Store.getScores();
-        const scores = allScores[todayKey] || {};
-
-        const memberStats = members.map(member => {
-            const score = scores[member.id];
-            const isAbsent = score?.isAbsent || false;
-            const points = isAbsent ? 0 : Utils.countTotal(score);
-            const percent = Utils.getPercentage(points);
-            const evaluated = !!score;
-
-            return {
-                ...member,
-                points,
-                percent,
-                isAbsent,
-                evaluated,
-                unit: units.find(u => u.id === member.unitId)
-            };
-        });
-
-        const unitStats = units.map(unit => {
-            const unitMembers = memberStats.filter(m => m.unitId === unit.id);
-            const totalPoints = unitMembers.reduce((sum, m) => sum + m.points, 0);
-            const average = unitMembers.length > 0 ? Math.round(totalPoints / unitMembers.length) : 0;
-
-            return {
-                ...unit,
-                average,
-                memberCount: unitMembers.length,
-                members: unitMembers
-            };
-        }).sort((a, b) => b.average - a.average);
-
-        const bestUnit = unitStats[0];
-
-        const generateWhatsAppText = () => {
-            let text = `*RELATÓRIO DA REUNIÃO - ${Utils.formatDate(todayKey)}*\n\n`;
-            text += `🏆 *Unidade Destaque:* ${bestUnit ? bestUnit.name : 'N/A'}\n`;
-            text += `📊 *Média Geral:* ${Math.round(unitStats.reduce((sum, u) => sum + u.average, 0) / (unitStats.length || 1))} pts\n\n`;
-
-            unitStats.forEach(unit => {
-                text += `*${unit.name}* (Média: ${unit.average} pts)\n`;
-                unit.members.forEach(member => {
-                    const status = !member.evaluated
-                        ? 'Não avaliado'
-                        : member.isAbsent
-                            ? 'Ausente'
-                            : `${member.points} pts (${member.percent}%)`;
-                    text += `- ${member.name}: ${status}\n`;
-                });
-                text += '\n';
+                return {
+                    'Desbravador': member.name,
+                    'Unidade': unit?.name || 'N/A',
+                    'Pontos': points,
+                    'Percentual': Utils.getPercentage(points) + '%',
+                    'Status': !score ? 'Não avaliado' : score.isAbsent ? 'Ausente' : 'Presente'
+                };
             });
 
-            return text;
-        };
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Relatório');
 
-        const html = `
+            const filename = `relatorio_${todayKey}.xlsx`;
+            XLSX.writeFile(wb, filename);
+
+            Toast.show('Relatório exportado com sucesso!', 'success');
+        },
+
+    async renderReport() {
+            const todayKey = Utils.getTodayKey();
+            const units = await Store.getUnits();
+            const members = await Store.getMembers();
+            const allScores = await Store.getScores();
+            const scores = allScores[todayKey] || {};
+
+            const memberStats = members.map(member => {
+                const score = scores[member.id];
+                const isAbsent = score?.isAbsent || false;
+                const points = isAbsent ? 0 : Utils.countTotal(score);
+                const percent = Utils.getPercentage(points);
+                const evaluated = !!score;
+
+                return {
+                    ...member,
+                    points,
+                    percent,
+                    isAbsent,
+                    evaluated,
+                    unit: units.find(u => u.id === member.unitId)
+                };
+            });
+
+            const unitStats = units.map(unit => {
+                const unitMembers = memberStats.filter(m => m.unitId === unit.id);
+                const totalPoints = unitMembers.reduce((sum, m) => sum + m.points, 0);
+                const average = unitMembers.length > 0 ? Math.round(totalPoints / unitMembers.length) : 0;
+
+                return {
+                    ...unit,
+                    average,
+                    memberCount: unitMembers.length,
+                    members: unitMembers
+                };
+            }).sort((a, b) => b.average - a.average);
+
+            const bestUnit = unitStats[0];
+
+            const generateWhatsAppText = () => {
+                let text = `*RELATÓRIO DA REUNIÃO - ${Utils.formatDate(todayKey)}*\n\n`;
+                text += `🏆 *Unidade Destaque:* ${bestUnit ? bestUnit.name : 'N/A'}\n`;
+                text += `📊 *Média Geral:* ${Math.round(unitStats.reduce((sum, u) => sum + u.average, 0) / (unitStats.length || 1))} pts\n\n`;
+
+                unitStats.forEach(unit => {
+                    text += `*${unit.name}* (Média: ${unit.average} pts)\n`;
+                    unit.members.forEach(member => {
+                        const status = !member.evaluated
+                            ? 'Não avaliado'
+                            : member.isAbsent
+                                ? 'Ausente'
+                                : `${member.points} pts (${member.percent}%)`;
+                        text += `- ${member.name}: ${status}\n`;
+                    });
+                    text += '\n';
+                });
+
+                return text;
+            };
+
+            const html = `
             <div class="slide-in pb-24 space-y-8">
                 <div class="text-center border-b-2 border-slate-800 pb-4 mt-4">
                     <h2 class="text-2xl font-black text-white uppercase tracking-widest">
@@ -2313,19 +2358,19 @@ const App = {
                                             <div class="font-bold text-white">${member.name}</div>
                                             <div class="text-sm text-slate-400">
                                                 ${member.evaluated
-                ? (member.isAbsent
-                    ? '<span class="text-red-400">Ausente</span>'
-                    : `${member.points} pontos (${member.percent}%)`)
-                : '<span class="text-yellow-400">Não avaliado</span>'
-            }
+                    ? (member.isAbsent
+                        ? '<span class="text-red-400">Ausente</span>'
+                        : `${member.points} pontos (${member.percent}%)`)
+                    : '<span class="text-yellow-400">Não avaliado</span>'
+                }
                                             </div>
                                         </div>
                                         ${member.image
-                ? `<img src="${member.image}" 
+                    ? `<img src="${member.image}" 
                                                    class="w-12 h-12 rounded-full object-cover border border-slate-700" 
                                                    alt="${member.name}">`
-                : ''
-            }
+                    : ''
+                }
                                     </div>
                                 </div>
                             `).join('')}
@@ -2362,35 +2407,35 @@ const App = {
             </div>
         `;
 
-        this.mountPoint.innerHTML = html;
-        if (typeof lucide !== 'undefined') lucide.createIcons();
-        this.toggleNavigation(false);
-    },
+            this.mountPoint.innerHTML = html;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            this.toggleNavigation(false);
+        },
 
     // --- Birthday Alert System ---
     async checkBirthdays() {
-        if (!DataAdapter.useSupabase()) {
-            return [];
-        }
-
-        try {
-            const { data, error } = await supabaseClient
-                .rpc('get_birthday_alerts');
-
-            if (error) {
-                console.error('Error fetching birthdays:', error);
+            if (!DataAdapter.useSupabase()) {
                 return [];
             }
 
-            return data || [];
-        } catch (error) {
-            console.error('Error in checkBirthdays:', error);
-            return [];
-        }
-    },
+            try {
+                const { data, error } = await supabaseClient
+                    .rpc('get_birthday_alerts');
 
-    renderBirthdayBanner(birthdays) {
-        return `
+                if (error) {
+                    console.error('Error fetching birthdays:', error);
+                    return [];
+                }
+
+                return data || [];
+            } catch (error) {
+                console.error('Error in checkBirthdays:', error);
+                return [];
+            }
+        },
+
+        renderBirthdayBanner(birthdays) {
+            return `
             <div class="bg-gradient-to-r from-pink-500/20 to-purple-500/20 
                         border border-pink-500/30 rounded-xl p-4 animate-fade-in">
                 <div class="flex items-center gap-3 mb-3">
@@ -2423,100 +2468,100 @@ const App = {
                 </div>
             </div>
         `;
-    },
+        },
 
     // --- Unit Classification ---
     async runUnitClassification() {
-        if (!RBAC.isSuperAdmin()) {
-            Toast.show('Apenas administradores podem executar esta ação', 'error');
-            return;
-        }
-
-        const confirmed = confirm(
-            'Deseja executar a classificação automática de unidades?\n\n' +
-            'Esta ação irá mover membros entre unidades baseado em:\n' +
-            '- Idade (calculada em 30/06)\n' +
-            '- Sexo\n\n' +
-            'ATENÇÃO: Conselheiros NÃO serão movidos para Lokomotiva.\n\n' +
-            'Continuar?'
-        );
-
-        if (!confirmed) return;
-
-        Loading.show('Executando classificação...');
-
-        try {
-            if (!DataAdapter.useSupabase()) {
-                Toast.show('Esta funcionalidade requer conexão com Supabase', 'error');
+            if (!RBAC.isSuperAdmin()) {
+                Toast.show('Apenas administradores podem executar esta ação', 'error');
                 return;
             }
 
-            // Call the stored procedure
-            const { data, error } = await supabaseClient
-                .rpc('update_member_units');
+            const confirmed = confirm(
+                'Deseja executar a classificação automática de unidades?\n\n' +
+                'Esta ação irá mover membros entre unidades baseado em:\n' +
+                '- Idade (calculada em 30/06)\n' +
+                '- Sexo\n\n' +
+                'ATENÇÃO: Conselheiros NÃO serão movidos para Lokomotiva.\n\n' +
+                'Continuar?'
+            );
 
-            if (error) {
-                console.error('Error running classification:', error);
-                Toast.show('Erro ao executar classificação: ' + error.message, 'error');
-                return;
+            if (!confirmed) return;
+
+            Loading.show('Executando classificação...');
+
+            try {
+                if (!DataAdapter.useSupabase()) {
+                    Toast.show('Esta funcionalidade requer conexão com Supabase', 'error');
+                    return;
+                }
+
+                // Call the stored procedure
+                const { data, error } = await supabaseClient
+                    .rpc('update_member_units');
+
+                if (error) {
+                    console.error('Error running classification:', error);
+                    Toast.show('Erro ao executar classificação: ' + error.message, 'error');
+                    return;
+                }
+
+                Toast.show('Classificação executada com sucesso!', 'success');
+
+                // Refresh dashboard to show updated units
+                setTimeout(() => {
+                    this.renderDashboard();
+                }, 1500);
+
+            } catch (error) {
+                console.error('Error in runUnitClassification:', error);
+                Toast.show('Erro ao executar classificação', 'error');
+            } finally {
+                Loading.hide();
             }
+        },
 
-            Toast.show('Classificação executada com sucesso!', 'success');
+        toggleNavigation(show) {
+            const nav = document.querySelector('nav.absolute.bottom-0');
+            const reportBtn = document.getElementById('btn-report');
 
-            // Refresh dashboard to show updated units
-            setTimeout(() => {
-                this.renderDashboard();
-            }, 1500);
+            if (nav) nav.style.display = show ? 'block' : 'none';
+            if (reportBtn) reportBtn.style.display = show ? 'block' : 'none';
+        },
 
-        } catch (error) {
-            console.error('Error in runUnitClassification:', error);
-            Toast.show('Erro ao executar classificação', 'error');
-        } finally {
-            Loading.hide();
-        }
-    },
+        addUnitPrompt() {
+            const name = prompt('Nome da Nova Unidade:');
+            if (name && name.trim()) {
+                Store.addUnit(name.trim());
+                this.navigate('dashboard');
+            }
+        },
 
-    toggleNavigation(show) {
-        const nav = document.querySelector('nav.absolute.bottom-0');
-        const reportBtn = document.getElementById('btn-report');
-
-        if (nav) nav.style.display = show ? 'block' : 'none';
-        if (reportBtn) reportBtn.style.display = show ? 'block' : 'none';
-    },
-
-    addUnitPrompt() {
-        const name = prompt('Nome da Nova Unidade:');
-        if (name && name.trim()) {
-            Store.addUnit(name.trim());
-            this.navigate('dashboard');
-        }
-    },
-
-    addMemberPrompt(unitId) {
-        const name = prompt('Nome do Desbravador:');
-        if (name && name.trim()) {
-            Store.addMember(name.trim(), unitId);
-            this.navigate('unit', { unitId });
-        }
-    },
+        addMemberPrompt(unitId) {
+            const name = prompt('Nome do Desbravador:');
+            if (name && name.trim()) {
+                Store.addMember(name.trim(), unitId);
+                this.navigate('unit', { unitId });
+            }
+        },
 
     // --- Counselor Evaluation ---
     async renderCounselorEvaluation(counselorId) {
-        const members = await Store.getMembers();
-        const member = members.find(m => m.id === counselorId);
-        if (!member || !member.isCounselor) {
-            alert('Conselheiro não encontrado!');
-            this.navigate('dashboard');
-            return;
-        }
+            const members = await Store.getMembers();
+            const member = members.find(m => m.id === counselorId);
+            if (!member || !member.isCounselor) {
+                alert('Conselheiro não encontrado!');
+                this.navigate('dashboard');
+                return;
+            }
 
-        const units = await Store.getUnits();
-        const unit = units.find(u => u.id === member.unitId);
-        const todayKey = Utils.getTodayKey();
-        const evaluation = await Store.getCounselorScore(counselorId, todayKey);
-        const currentTotal = Utils.countCounselorTotal(evaluation);
+            const units = await Store.getUnits();
+            const unit = units.find(u => u.id === member.unitId);
+            const todayKey = Utils.getTodayKey();
+            const evaluation = await Store.getCounselorScore(counselorId, todayKey);
+            const currentTotal = Utils.countCounselorTotal(evaluation);
 
-        const html = `
+            const html = `
             <div class="slide-in pb-24">
                 <!-- Header com Botão Voltar -->
                 <div class="flex items-center justify-between mb-4">
@@ -2531,13 +2576,13 @@ const App = {
                 <div class="text-center border-b-2 border-dashed border-slate-700 pb-4 mb-6">
                     <div class="flex flex-col items-center justify-center gap-2 mb-2">
                         ${member.image
-                ? `<img src="${member.image}" 
+                    ? `<img src="${member.image}" 
                                    class="w-24 h-24 rounded-full object-cover border-4 border-brand-gold/30 shadow-lg" 
                                    alt="${member.name}">`
-                : `<div class="w-24 h-24 rounded-full bg-brand-gold/20 flex items-center justify-center border-4 border-brand-gold/30">
+                    : `<div class="w-24 h-24 rounded-full bg-brand-gold/20 flex items-center justify-center border-4 border-brand-gold/30">
                                    <i data-lucide="user-check" class="w-12 h-12 text-brand-gold"></i>
                                </div>`
-            }
+                }
                         <h2 class="text-2xl font-black text-white uppercase tracking-wide leading-none">
                             ${member.name}
                         </h2>
@@ -2591,85 +2636,85 @@ const App = {
             </div>
         `;
 
-        this.mountPoint.innerHTML = html;
-        if (typeof lucide !== 'undefined') lucide.createIcons();
-        this.toggleNavigation(true);
+            this.mountPoint.innerHTML = html;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            this.toggleNavigation(true);
 
-        // Event listeners
-        document.querySelectorAll('.counselor-toggle').forEach(toggle => {
-            toggle.addEventListener('change', () => this.recalcCounselorScore());
-        });
+            // Event listeners
+            document.querySelectorAll('.counselor-toggle').forEach(toggle => {
+                toggle.addEventListener('change', () => this.recalcCounselorScore());
+            });
 
-        // Capturar estado inicial para detectar mudanças
-        this.initialCounselorState = null;
-        setTimeout(() => {
-            this.initialCounselorState = this.captureCounselorState();
-        }, 100);
-    },
+            // Capturar estado inicial para detectar mudanças
+            this.initialCounselorState = null;
+            setTimeout(() => {
+                this.initialCounselorState = this.captureCounselorState();
+            }, 100);
+        },
 
-    recalcCounselorScore() {
-        const toggles = document.querySelectorAll('.counselor-toggle:checked');
+        recalcCounselorScore() {
+            const toggles = document.querySelectorAll('.counselor-toggle:checked');
 
-        let total = 0;
-        toggles.forEach(toggle => {
-            const item = CONFIG.COUNSELOR_ITEMS.find(i => i.id === toggle.dataset.id);
-            if (item) total += item.points;
-        });
+            let total = 0;
+            toggles.forEach(toggle => {
+                const item = CONFIG.COUNSELOR_ITEMS.find(i => i.id === toggle.dataset.id);
+                if (item) total += item.points;
+            });
 
-        const valEl = document.getElementById('counselor-score-val');
-        if (valEl) valEl.textContent = total;
-    },
+            const valEl = document.getElementById('counselor-score-val');
+            if (valEl) valEl.textContent = total;
+        },
 
     async saveCounselorScore(counselorId) {
-        const members = await Store.getMembers();
-        const member = members.find(m => m.id === counselorId);
-        if (!member) return;
+            const members = await Store.getMembers();
+            const member = members.find(m => m.id === counselorId);
+            if (!member) return;
 
-        const scoreToggles = document.querySelectorAll('.counselor-toggle');
-        const items = {};
+            const scoreToggles = document.querySelectorAll('.counselor-toggle');
+            const items = {};
 
-        scoreToggles.forEach(toggle => {
-            items[toggle.dataset.id] = toggle.checked;
-        });
+            scoreToggles.forEach(toggle => {
+                items[toggle.dataset.id] = toggle.checked;
+            });
 
-        const scoreData = { items };
-        await Store.saveCounselorScore(counselorId, Utils.getTodayKey(), scoreData);
+            const scoreData = { items };
+            await Store.saveCounselorScore(counselorId, Utils.getTodayKey(), scoreData);
 
-        Toast.show('Avaliação salva com sucesso!', 'success');
-        this.navigate('dashboard');
-    },
+            Toast.show('Avaliação salva com sucesso!', 'success');
+            this.navigate('dashboard');
+        },
 
     // --- Counselor Ranking ---
     async renderCounselorRanking() {
-        Loading.show('Calculando ranking...');
+            Loading.show('Calculando ranking...');
 
-        try {
-            const dateKey = Utils.getTodayKey();
-            const members = await Store.getMembers();
-            const counselors = members.filter(m => m.isCounselor);
-            const units = await Store.getUnits();
+            try {
+                const dateKey = Utils.getTodayKey();
+                const members = await Store.getMembers();
+                const counselors = members.filter(m => m.isCounselor);
+                const units = await Store.getUnits();
 
-            // Calcular scores para todos os conselheiros
-            const rankingsPromises = counselors.map(async (counselor) => {
-                const unit = units.find(u => u.id === counselor.unitId);
-                const unitEfficiency = await Utils.calculateUnitEfficiency(counselor.unitId, dateKey);
-                const personalScore = await Utils.calculateCounselorPersonalScore(counselor.id, dateKey);
-                const finalScore = await Utils.calculateCounselorFinalScore(counselor.id, dateKey);
+                // Calcular scores para todos os conselheiros
+                const rankingsPromises = counselors.map(async (counselor) => {
+                    const unit = units.find(u => u.id === counselor.unitId);
+                    const unitEfficiency = await Utils.calculateUnitEfficiency(counselor.unitId, dateKey);
+                    const personalScore = await Utils.calculateCounselorPersonalScore(counselor.id, dateKey);
+                    const finalScore = await Utils.calculateCounselorFinalScore(counselor.id, dateKey);
 
-                return {
-                    counselor,
-                    unit,
-                    unitEfficiency,
-                    personalScore,
-                    finalScore
-                };
-            });
+                    return {
+                        counselor,
+                        unit,
+                        unitEfficiency,
+                        personalScore,
+                        finalScore
+                    };
+                });
 
-            const rankings = (await Promise.all(rankingsPromises)).sort((a, b) => b.finalScore - a.finalScore);
+                const rankings = (await Promise.all(rankingsPromises)).sort((a, b) => b.finalScore - a.finalScore);
 
-            const medals = ['🥇', '🥈', '🥉'];
+                const medals = ['🥇', '🥈', '🥉'];
 
-            const html = `
+                const html = `
             <div class="slide-in pb-20">
                 <div class="text-center mb-6">
                     <div class="bg-brand-gold/10 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-brand-gold/30">
@@ -2729,22 +2774,22 @@ const App = {
             </div>
         `;
 
-            this.mountPoint.innerHTML = html;
-            if (typeof lucide !== 'undefined') lucide.createIcons();
-            this.toggleNavigation(true);
-        } catch (error) {
-            console.error('Erro ao carregar ranking:', error);
-            Toast.show('Erro ao carregar ranking', 'error');
-            this.navigate('dashboard');
-        } finally {
-            Loading.hide();
+                this.mountPoint.innerHTML = html;
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+                this.toggleNavigation(true);
+            } catch (error) {
+                console.error('Erro ao carregar ranking:', error);
+                Toast.show('Erro ao carregar ranking', 'error');
+                this.navigate('dashboard');
+            } finally {
+                Loading.hide();
+            }
         }
-    }
-};
+    };
 
-// --- Inicialização ---
-window.App = App;
+    // --- Inicialização ---
+    window.App = App;
 
-document.addEventListener('DOMContentLoaded', async () => {
-    await App.init();
-});
+    document.addEventListener('DOMContentLoaded', async () => {
+        await App.init();
+    });
