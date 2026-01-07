@@ -1639,6 +1639,14 @@ const App = {
 
             const html = `
             <div class="slide-in space-y-4">
+                <!-- Club Logo -->
+                <div class="flex justify-center mb-6">
+                    <img src="/fotos/barao-logo.png" 
+                         alt="Barão de Mauá - Clube de Desbravadores" 
+                         class="h-24 w-auto object-contain"
+                         onerror="this.style.display='none'">
+                </div>
+                
                 ${currentUser ? `
                     <div class="bg-gradient-to-r from-brand-navy/20 to-transparent p-4 rounded-xl border border-brand-navy/30 flex items-center justify-between">
                         <div class="flex items-center gap-3">
