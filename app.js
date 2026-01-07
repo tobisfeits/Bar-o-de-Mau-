@@ -1366,12 +1366,21 @@ const App = {
 
     async loadUsersDropdown() {
         const select = document.getElementById('login-user');
-        if (!select) return;
+        if (!select) {
+            console.error('❌ login-user element not found');
+            return;
+        }
 
+        // ALWAYS load default users first (instant, no waiting)
+        console.log('📋 Loading default users immediately...');
+        this.populateDefaultUsers(select);
+
+        // Then try to upgrade from database (async, non-blocking)
         try {
-            // Add timeout to prevent infinite loading
+            console.log('🔄 Attempting to fetch users from database...');
+
             const timeoutPromise = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Timeout')), 5000)
+                setTimeout(() => reject(new Error('Timeout')), 3000)
             );
 
             const fetchPromise = supabaseClient
@@ -1379,17 +1388,20 @@ const App = {
                 .select('id, name, role')
                 .order('name');
 
-            // Race between fetch and timeout
             const { data: users, error } = await Promise.race([fetchPromise, timeoutPromise]);
 
             if (error) {
-                console.error('Erro ao carregar usuários:', error);
-                // Fallback to default users
-                this.populateDefaultUsers(select);
+                console.warn('⚠️ Database error, keeping default users:', error.message);
                 return;
             }
 
-            // Popula o dropdown
+            if (!users || users.length === 0) {
+                console.warn('⚠️ No users in database, keeping defaults');
+                return;
+            }
+
+            // Successfully fetched from database - upgrade the dropdown
+            console.log(`✅ Upgrading to ${users.length} users from database`);
             select.innerHTML = '<option value="">Selecione seu usuário</option>';
             users.forEach(user => {
                 const option = document.createElement('option');
@@ -1398,11 +1410,9 @@ const App = {
                 select.appendChild(option);
             });
 
-            console.log(`✅ ${users.length} usuários carregados`);
         } catch (error) {
-            console.error('Erro ao carregar dropdown:', error);
-            // Fallback to default users on any error
-            this.populateDefaultUsers(select);
+            console.warn('⚠️ Failed to load from database, keeping defaults:', error.message);
+            // Default users already loaded, so we're good
         }
     },
 
