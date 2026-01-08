@@ -2819,5 +2819,10 @@ const App = {
 window.App = App;
 
 document.addEventListener('DOMContentLoaded', async () => {
+    // Initialize error boundary first
+    if (typeof ErrorBoundary !== 'undefined') {
+        ErrorBoundary.init();
+    }
+
     await App.init();
 });
