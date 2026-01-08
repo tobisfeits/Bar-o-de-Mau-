@@ -1655,7 +1655,7 @@ const App = {
                             </div>
                         </div>
                         <div class="flex items-center gap-2">
-                            ${RBAC.isSuperAdmin() ? `
+                            ${currentUser.id === 'u4' ? `
                                 <button onclick="App.runUnitClassification()" 
                                         class="px-3 py-2 rounded-lg bg-brand-gold/20 hover:bg-brand-gold/30 
                                                text-brand-gold transition-colors flex items-center gap-2"
@@ -1663,12 +1663,12 @@ const App = {
                                     <i data-lucide="refresh-cw" class="w-4 h-4"></i>
                                     <span class="text-xs font-bold">Classificar</span>
                                 </button>
+                                <button onclick="Theme.toggle(); App.renderDashboard();" 
+                                        class="p-2 rounded-lg hover:bg-white/10 transition-colors"
+                                        title="Alternar tema">
+                                    <i data-lucide="${Theme.getIcon()}" class="w-5 h-5 text-brand-gold"></i>
+                                </button>
                             ` : ''}
-                            <button onclick="Theme.toggle(); App.renderDashboard();" 
-                                    class="p-2 rounded-lg hover:bg-white/10 transition-colors"
-                                    title="Alternar tema">
-                                <i data-lucide="${Theme.getIcon()}" class="w-5 h-5 text-brand-gold"></i>
-                            </button>
                             <button onclick="App.logout()" class="p-2 rounded-lg hover:bg-white/10 transition-colors">
                                 <i data-lucide="log-out" class="w-4 h-4 text-slate-500"></i>
                             </button>
