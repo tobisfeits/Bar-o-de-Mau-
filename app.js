@@ -1839,14 +1839,6 @@ const App = {
                     `).join('')}
                 </div>
                 
-                <button onclick="App.addMemberPrompt('${unitId}')" 
-                        class="w-full py-4 border-2 border-dashed border-slate-700 
-                               rounded-xl flex items-center justify-center gap-2 
-                               text-slate-500 font-bold hover:bg-slate-900 transition-colors">
-                    <i data-lucide="plus-circle" class="w-5 h-5"></i>
-                    Adicionar Desbravador
-                </button>
-                
                 <div class="fixed bottom-6 left-4 right-4">
                     <button onclick="App.navigate('dashboard')" 
                             class="w-full py-4 rounded-xl font-bold text-slate-300 
