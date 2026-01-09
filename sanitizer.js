@@ -132,5 +132,39 @@ const Sanitizer = {
 
         const dateObj = new Date(date);
         return isNaN(dateObj.getTime()) ? null : date;
+    },
+
+    /**
+     * Normalize name to Title Case with exceptions for Portuguese connectives
+     * @param {string} name - Name to normalize (e.g., "TOBIAS FEITOSA DE MATOS")
+     * @returns {string} - Normalized name (e.g., "Tobias Feitosa de Matos")
+     * 
+     * Examples:
+     * - "TOBIAS FEITOSA DE MATOS" → "Tobias Feitosa de Matos"
+     * - "MARIA DAS GRAÇAS" → "Maria das Graças"
+     * - "JOÃO DOS SANTOS" → "João dos Santos"
+     */
+    normalizeName(name) {
+        if (!name) return '';
+
+        // List of Portuguese connectives that should remain lowercase
+        const exceptions = ['da', 'de', 'do', 'das', 'dos', 'e'];
+
+        // Split the name into words
+        const words = name.trim().toLowerCase().split(/\s+/);
+
+        // Process each word
+        const normalizedWords = words.map((word, index) => {
+            // Check if the word is in the exceptions list
+            // Don't apply exception to the first word (always capitalize first word)
+            if (index > 0 && exceptions.includes(word)) {
+                return word; // Keep lowercase
+            }
+
+            // Capitalize first letter, keep rest lowercase
+            return word.charAt(0).toUpperCase() + word.slice(1);
+        });
+
+        return normalizedWords.join(' ');
     }
 };
