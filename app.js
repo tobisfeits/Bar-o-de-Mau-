@@ -1650,7 +1650,7 @@ const App = {
                             </div>
                             <div>
                                 <p class="text-xs text-slate-500 uppercase tracking-wider">Logado como</p>
-                                <p class="text-sm font-bold text-white">${currentUser.name}</p>
+                                <p class="text-sm font-bold text-white">${Sanitizer.normalizeName(currentUser.name)}</p>
                                 ${userInfo ? `<p class="text-xs text-brand-gold">${userInfo.roleLabel}</p>` : ''}
                             </div>
                         </div>
@@ -1825,7 +1825,7 @@ const App = {
             }
                                 <div class="flex flex-col">
                                     <div class="flex items-center gap-2">
-                                        <span class="font-bold text-lg text-slate-200">${member.name}</span>
+                                        <span class="font-bold text-lg text-slate-200">${Sanitizer.normalizeName(member.name)}</span>
                                         ${member.isCounselor ? `
                                             <span class="text-xs px-2 py-0.5 bg-brand-gold/20 text-brand-gold rounded-full font-bold uppercase tracking-wider border border-brand-gold/30">
                                                 cons
@@ -1902,7 +1902,7 @@ const App = {
                 : ''
             }
                         <h2 class="text-2xl font-black text-white uppercase tracking-wide leading-none">
-                            ${member.name}
+                            ${Sanitizer.normalizeName(member.name)}
                         </h2>
                     </div>
                     <p class="text-sm font-bold text-slate-400 uppercase">Unidade: ${unit.name}</p>
@@ -2268,7 +2268,7 @@ const App = {
             const points = score?.isAbsent ? 0 : Utils.countTotal(score);
 
             return {
-                'Desbravador': member.name,
+                'Desbravador': Sanitizer.normalizeName(member.name),
                 'Unidade': unit?.name || 'N/A',
                 'Pontos': points,
                 'Percentual': Utils.getPercentage(points) + '%',
@@ -2338,7 +2338,7 @@ const App = {
                         : member.isAbsent
                             ? 'Ausente'
                             : `${member.points} pts (${member.percent}%)`;
-                    text += `- ${member.name}: ${status}\n`;
+                    text += `- ${Sanitizer.normalizeName(member.name)}: ${status}\n`;
                 });
                 text += '\n';
             });
@@ -2383,7 +2383,7 @@ const App = {
                                 <div class="bg-slate-900 rounded-xl border border-slate-800 p-4 shadow-sm">
                                     <div class="flex justify-between items-start mb-3">
                                         <div>
-                                            <div class="font-bold text-white">${member.name}</div>
+                                            <div class="font-bold text-white">${Sanitizer.normalizeName(member.name)}</div>
                                             <div class="text-sm text-slate-400">
                                                 ${member.evaluated
                 ? (member.isAbsent
@@ -2483,7 +2483,7 @@ const App = {
                                     <i data-lucide="user" class="w-4 h-4 text-brand-gold"></i>
                                 </div>
                                 <div>
-                                    <p class="text-white font-bold text-sm">${b.member_name}</p>
+                                    <p class="text-white font-bold text-sm">${Sanitizer.normalizeName(b.member_name)}</p>
                                     <p class="text-xs text-slate-400">${b.unit_name || 'Sem unidade'}</p>
                                 </div>
                             </div>
@@ -2612,7 +2612,7 @@ const App = {
                                </div>`
             }
                         <h2 class="text-2xl font-black text-white uppercase tracking-wide leading-none">
-                            ${member.name}
+                            ${Sanitizer.normalizeName(member.name)}
                         </h2>
                         <span class="text-xs px-3 py-1 bg-brand-gold/20 text-brand-gold rounded-full font-bold uppercase tracking-wider border border-brand-gold/30">
                             Conselheiro
@@ -2761,7 +2761,7 @@ const App = {
                                 <div class="flex items-center gap-3">
                                     <span class="text-2xl">${index < 3 ? medals[index] : `${index + 1}º`}</span>
                                     <div>
-                                        <h3 class="font-bold text-white text-sm">${rank.counselor.name}</h3>
+                                        <h3 class="font-bold text-white text-sm">${Sanitizer.normalizeName(rank.counselor.name)}</h3>
                                         <p class="text-xs text-slate-500">${rank.unit.name}</p>
                                     </div>
                                 </div>
