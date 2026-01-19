@@ -1893,6 +1893,24 @@ const App = {
                     <span class="text-brand-gold font-bold text-sm">${unit.name}</span>
                 </div>
                 
+                <!-- Date Selector for Retroactive Entries -->
+                <div class="bg-slate-800/50 rounded-xl p-4 mb-4 border border-slate-700">
+                    <label class="block text-sm font-bold text-slate-300 mb-2">
+                        📅 Data da Pontuação
+                    </label>
+                    <input type="date" 
+                           id="score-date" 
+                           value="${Utils.getTodayKey()}"
+                           max="${Utils.getTodayKey()}"
+                           class="w-full px-4 py-3 rounded-lg bg-slate-900 border border-slate-700 
+                                  text-white font-bold focus:outline-none focus:ring-2 
+                                  focus:ring-brand-gold focus:border-transparent"
+                           onchange="App.loadScoreForDate('${memberId}')">
+                    <p class="text-xs text-slate-500 mt-2">
+                        💡 Você pode selecionar uma data passada para lançamentos retroativos
+                    </p>
+                </div>
+                
                 <div class="text-center border-b-2 border-dashed border-slate-700 pb-4 mb-6">
                     <div class="flex flex-col items-center justify-center gap-2 mb-2">
                         ${member.image
@@ -2060,6 +2078,54 @@ const App = {
         if (valEl) valEl.textContent = total;
     },
 
+    async loadScoreForDate(memberId) {
+        const dateInput = document.getElementById('score-date');
+        if (!dateInput) return;
+
+        const selectedDate = dateInput.value;
+        Logger.info('Loading score for date', { memberId, date: selectedDate });
+
+        // Load score for selected date
+        const existingScore = await Store.getMemberScore(memberId, selectedDate);
+
+        // Update absent toggle
+        const absentToggle = document.getElementById('toggle-absent');
+        if (absentToggle) {
+            absentToggle.checked = existingScore.isAbsent || false;
+        }
+
+        // Update score toggles
+        const scoreToggles = document.querySelectorAll('.score-toggle');
+        scoreToggles.forEach(toggle => {
+            const itemId = toggle.dataset.id;
+            toggle.checked = existingScore.items[itemId] || false;
+        });
+
+        // Update scoring list opacity
+        const scoringList = document.getElementById('scoring-list');
+        if (scoringList) {
+            if (existingScore.isAbsent) {
+                scoringList.classList.add('opacity-50', 'pointer-events-none');
+            } else {
+                scoringList.classList.remove('opacity-50', 'pointer-events-none');
+            }
+        }
+
+        // Update total score display
+        const currentTotal = Utils.countTotal(existingScore);
+        const scoreDisplay = document.getElementById('score-text-val');
+        if (scoreDisplay) {
+            scoreDisplay.textContent = currentTotal;
+        }
+
+        Toast.show(`Pontuação de ${this.formatDate(selectedDate)} carregada`, 'info');
+    },
+
+    formatDate(dateKey) {
+        const [year, month, day] = dateKey.split('-');
+        return `${day}/${month}/${year}`;
+    },
+
     async saveCurrentScore(memberId) {
         const members = await Store.getMembers();
         const member = members.find(m => m.id === memberId);
@@ -2077,10 +2143,15 @@ const App = {
             });
         }
 
-        const scoreData = { isAbsent, items };
-        await Store.saveScore(memberId, Utils.getTodayKey(), scoreData);
+        // Get selected date from date picker
+        const dateInput = document.getElementById('score-date');
+        const scoreDate = dateInput ? dateInput.value : Utils.getTodayKey();
 
-        Toast.show('Pontuação salva com sucesso!', 'success');
+        const scoreData = { isAbsent, items };
+        await Store.saveScore(memberId, scoreDate, scoreData);
+
+        const formattedDate = this.formatDate(scoreDate);
+        Toast.show(`Pontuação de ${formattedDate} salva com sucesso!`, 'success');
         this.navigate('unit', { unitId: member.unitId });
     },
 
