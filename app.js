@@ -497,7 +497,9 @@ const CONFIG = {
         { id: 'materials', name: 'Material', points: 20 },
         { id: 'discipline', name: 'Disciplina', points: 15 },
         { id: 'classwork', name: 'Tarefas de Classe', points: 30 },
-        { id: 'teamspirit', name: 'Espírito de Equipe', points: 10 }
+        { id: 'teamspirit', name: 'Espírito de Equipe', points: 10 },
+        { id: 'biblicalyear', name: 'Ano Bíblico', points: 20 },
+        { id: 'sabbathschool', name: 'Escola Sabatina', points: 20 }
     ],
     COUNSELOR_ITEMS: [
         { id: 'uniform', name: 'Uniforme Completo', points: 20 },
@@ -1942,7 +1944,7 @@ const App = {
                 <div class="text-center mb-4">
                     <span class="text-lg font-bold text-slate-400">
                         Pontuação total: 
-                        <span id="score-text-val" class="text-brand-gold">${currentTotal}</span>/160
+                        <span id="score-text-val" class="text-brand-gold">${currentTotal}</span>/180
                     </span>
                 </div>
                 
