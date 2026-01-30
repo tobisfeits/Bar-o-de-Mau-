@@ -2360,25 +2360,55 @@ const App = {
         Toast.show('Relatório exportado com sucesso!', 'success');
     },
 
-    async renderReport() {
+    async renderReport(startDate = null, endDate = null) {
+        // Se não houver datas, usar hoje como padrão
         const todayKey = Utils.getTodayKey();
+        const defaultStart = startDate || todayKey;
+        const defaultEnd = endDate || todayKey;
+
         const units = await Store.getUnits();
         const members = await Store.getMembers();
         const allScores = await Store.getScores();
-        const scores = allScores[todayKey] || {};
+
+        // Calcular pontuação acumulada no período
+        const calculatePeriodScores = (memberId) => {
+            let totalPoints = 0;
+            let daysEvaluated = 0;
+            let daysAbsent = 0;
+
+            // Iterar por todas as datas no período
+            const start = new Date(defaultStart);
+            const end = new Date(defaultEnd);
+
+            for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                const dateKey = d.toISOString().split('T')[0];
+                const dayScores = allScores[dateKey] || {};
+                const memberScore = dayScores[memberId];
+
+                if (memberScore) {
+                    daysEvaluated++;
+                    if (memberScore.isAbsent) {
+                        daysAbsent++;
+                    } else {
+                        totalPoints += Utils.countTotal(memberScore);
+                    }
+                }
+            }
+
+            return { totalPoints, daysEvaluated, daysAbsent };
+        };
 
         const memberStats = members.map(member => {
-            const score = scores[member.id];
-            const isAbsent = score?.isAbsent || false;
-            const points = isAbsent ? 0 : Utils.countTotal(score);
-            const percent = Utils.getPercentage(points);
-            const evaluated = !!score;
+            const { totalPoints, daysEvaluated, daysAbsent } = calculatePeriodScores(member.id);
+            const evaluated = daysEvaluated > 0;
+            const percent = evaluated ? Math.round((totalPoints / (190 * daysEvaluated)) * 100) : 0;
 
             return {
                 ...member,
-                points,
+                points: totalPoints,
                 percent,
-                isAbsent,
+                daysEvaluated,
+                daysAbsent,
                 evaluated,
                 unit: units.find(u => u.id === member.unitId)
             };
@@ -2399,8 +2429,13 @@ const App = {
 
         const bestUnit = unitStats[0];
 
+        // Formatar período para exibição
+        const periodText = defaultStart === defaultEnd
+            ? Utils.formatDate(defaultStart)
+            : `${Utils.formatDate(defaultStart)} até ${Utils.formatDate(defaultEnd)}`;
+
         const generateWhatsAppText = () => {
-            let text = `*RELATÓRIO DA REUNIÃO - ${Utils.formatDate(todayKey)}*\n\n`;
+            let text = `*RELATÓRIO - ${periodText}*\n\n`;
             text += `🏆 *Unidade Destaque:* ${bestUnit ? bestUnit.name : 'N/A'}\n`;
             text += `📊 *Média Geral:* ${Math.round(unitStats.reduce((sum, u) => sum + u.average, 0) / (unitStats.length || 1))} pts\n\n`;
 
@@ -2409,9 +2444,7 @@ const App = {
                 unit.members.forEach(member => {
                     const status = !member.evaluated
                         ? 'Não avaliado'
-                        : member.isAbsent
-                            ? 'Ausente'
-                            : `${member.points} pts (${member.percent}%)`;
+                        : `${member.points} pts (${member.daysEvaluated} dias)`;
                     text += `- ${Sanitizer.normalizeName(member.name)}: ${status}\n`;
                 });
                 text += '\n';
@@ -2421,19 +2454,57 @@ const App = {
         };
 
         const html = `
-            <div class="slide-in pb-24 space-y-8">
+            <div class="slide-in pb-24 space-y-6">
                 <div class="text-center border-b-2 border-slate-800 pb-4 mt-4">
                     <h2 class="text-2xl font-black text-white uppercase tracking-widest">
-                        RELATÓRIO DA REUNIÃO
+                        RELATÓRIO DE PONTUAÇÃO
                     </h2>
                     <p class="text-sm font-bold text-slate-400 mt-1">
-                        Data: ${Utils.formatDate(todayKey)}
+                        Período: ${periodText}
                     </p>
+                </div>
+                
+                <!-- Date Range Filter -->
+                <div class="bg-slate-800/50 rounded-xl p-4 border border-slate-700 space-y-3">
+                    <div class="flex items-center gap-2 text-brand-gold mb-2">
+                        <i data-lucide="calendar" class="w-5 h-5"></i>
+                        <span class="font-bold text-sm uppercase">Filtrar por Período</span>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 mb-1">Data Inicial</label>
+                            <input type="date" 
+                                   id="report-start-date" 
+                                   value="${defaultStart}"
+                                   max="${todayKey}"
+                                   class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg 
+                                          text-slate-200 text-sm focus:outline-none focus:ring-2 
+                                          focus:ring-brand-gold/50 focus:border-brand-gold">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 mb-1">Data Final</label>
+                            <input type="date" 
+                                   id="report-end-date" 
+                                   value="${defaultEnd}"
+                                   max="${todayKey}"
+                                   class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg 
+                                          text-slate-200 text-sm focus:outline-none focus:ring-2 
+                                          focus:ring-brand-gold/50 focus:border-brand-gold">
+                        </div>
+                    </div>
+                    
+                    <button onclick="App.applyReportDateFilter()" 
+                            class="w-full py-2 bg-brand-gold text-slate-900 rounded-lg font-bold text-sm
+                                   hover:bg-brand-gold/90 transition-colors flex items-center justify-center gap-2">
+                        <i data-lucide="filter" class="w-4 h-4"></i>
+                        Aplicar Filtro
+                    </button>
                 </div>
                 
                 <div class="bg-brand-navy/10 p-4 rounded-xl border border-brand-navy/20 text-center">
                     <span class="text-xs font-bold text-brand-gold uppercase">
-                        Unidade Destaque do Dia
+                        Unidade Destaque do Período
                     </span>
                     <div class="text-xl font-black text-white mt-1">
                         ${bestUnit ? bestUnit.name : '-'}
@@ -2460,9 +2531,7 @@ const App = {
                                             <div class="font-bold text-white">${Sanitizer.normalizeName(member.name)}</div>
                                             <div class="text-sm text-slate-400">
                                                 ${member.evaluated
-                ? (member.isAbsent
-                    ? '<span class="text-red-400">Ausente</span>'
-                    : `${member.points} pontos (${member.percent}%)`)
+                ? `${member.points} pontos • ${member.daysEvaluated} dia(s) avaliado(s)`
                 : '<span class="text-yellow-400">Não avaliado</span>'
             }
                                             </div>
@@ -2512,6 +2581,24 @@ const App = {
         this.mountPoint.innerHTML = html;
         if (typeof lucide !== 'undefined') lucide.createIcons();
         this.toggleNavigation(false);
+    },
+
+    applyReportDateFilter() {
+        const startDate = document.getElementById('report-start-date')?.value;
+        const endDate = document.getElementById('report-end-date')?.value;
+
+        if (!startDate || !endDate) {
+            Toast.show('Por favor, selecione ambas as datas', 'error');
+            return;
+        }
+
+        if (new Date(startDate) > new Date(endDate)) {
+            Toast.show('Data inicial não pode ser maior que data final', 'error');
+            return;
+        }
+
+        // Recarregar relatório com novo período
+        this.renderReport(startDate, endDate);
     },
 
     // --- Birthday Alert System ---
