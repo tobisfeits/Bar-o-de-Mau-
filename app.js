@@ -2361,9 +2361,16 @@ const App = {
     },
 
     async renderReport(startDate = null, endDate = null) {
-        // Se não houver datas, usar hoje como padrão
+        // Se não houver datas, usar últimos 30 dias como padrão
         const todayKey = Utils.getTodayKey();
-        const defaultStart = startDate || todayKey;
+
+        // Calcular data de 30 dias atrás
+        const today = new Date();
+        const thirtyDaysAgo = new Date(today);
+        thirtyDaysAgo.setDate(today.getDate() - 30);
+        const thirtyDaysAgoKey = thirtyDaysAgo.toISOString().split('T')[0];
+
+        const defaultStart = startDate || thirtyDaysAgoKey;
         const defaultEnd = endDate || todayKey;
 
         const units = await Store.getUnits();
