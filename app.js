@@ -1394,7 +1394,7 @@ const App = {
             users.forEach(user => {
                 const option = document.createElement('option');
                 option.value = user.id;
-                option.textContent = `${user.name}${user.role === 'super_admin' ? ' (Admin)' : ''}`;
+                option.textContent = user.name;
                 select.appendChild(option);
             });
 
