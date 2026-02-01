@@ -1203,6 +1203,9 @@ const App = {
             case 'report':
                 this.renderReport();
                 break;
+            case 'password-change':
+                this.renderPasswordChange();
+                break;
             default:
                 this.renderDashboard();
         }
@@ -1464,6 +1467,159 @@ const App = {
         setTimeout(() => lucide.createIcons(), 100);
     },
 
+    renderPasswordChange() {
+        const user = Store.getCurrentUser();
+        if (!user) {
+            this.navigate('login');
+            return;
+        }
+
+        const html = `
+            <div class="flex flex-col items-center justify-center h-full p-6 slide-in">
+                <div class="bg-slate-900 p-8 rounded-2xl shadow-xl w-full max-w-md border border-slate-800">
+                    <div class="bg-amber-500/20 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 text-amber-400">
+                        <i data-lucide="key" class="w-10 h-10"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-white mb-2 text-center">Troca de Senha Obrigatória</h2>
+                    <p class="text-slate-400 mb-6 text-sm text-center">Por segurança, você deve criar sua própria senha no primeiro acesso.</p>
+                    
+                    <form id="password-change-form" class="space-y-4">
+                        <!-- Senha Atual -->
+                        <div>
+                            <label class="text-xs text-slate-500 uppercase tracking-wider mb-2 block">Senha Atual</label>
+                            <input type="password" id="current-password" required
+                                   placeholder="Digite sua senha atual"
+                                   class="w-full px-4 py-3 bg-slate-950 border-2 border-slate-700 rounded-xl 
+                                          focus:outline-none focus:border-amber-400 
+                                          text-white font-bold transition-all">
+                        </div>
+                        
+                        <!-- Nova Senha -->
+                        <div>
+                            <label class="text-xs text-slate-500 uppercase tracking-wider mb-2 block">Nova Senha</label>
+                            <input type="password" id="new-password" required minlength="6"
+                                   placeholder="Digite sua nova senha"
+                                   class="w-full px-4 py-3 bg-slate-950 border-2 border-slate-700 rounded-xl 
+                                          focus:outline-none focus:border-amber-400 
+                                          text-white font-bold transition-all">
+                            <p class="text-xs text-slate-500 mt-2">Mínimo 6 caracteres</p>
+                        </div>
+                        
+                        <!-- Confirmar Senha -->
+                        <div>
+                            <label class="text-xs text-slate-500 uppercase tracking-wider mb-2 block">Confirmar Nova Senha</label>
+                            <input type="password" id="confirm-password" required
+                                   placeholder="Digite novamente"
+                                   class="w-full px-4 py-3 bg-slate-950 border-2 border-slate-700 rounded-xl 
+                                          focus:outline-none focus:border-amber-400 
+                                          text-white font-bold transition-all">
+                        </div>
+                        
+                        <!-- Botão Alterar -->
+                        <button type="submit"
+                                class="w-full bg-amber-500 text-slate-900 font-bold py-4 rounded-xl 
+                                       shadow-lg hover:bg-amber-400 transition-transform 
+                                       active:scale-95 flex items-center justify-center gap-2 mt-6">
+                            ALTERAR SENHA
+                            <i data-lucide="check" class="w-5 h-5"></i>
+                        </button>
+                    </form>
+                </div>
+                <p class="mt-8 text-slate-500 text-xs">Clube de Desbravadores © 2026</p>
+            </div>
+        `;
+
+        this.mountPoint.innerHTML = html;
+        lucide.createIcons();
+        this.toggleNavigation(false);
+
+        // Bind form submit
+        document.getElementById('password-change-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.handlePasswordChange();
+        });
+    },
+
+    async handlePasswordChange() {
+        const user = Store.getCurrentUser();
+        if (!user) {
+            alert('Erro: Usuário não encontrado!');
+            this.navigate('login');
+            return;
+        }
+
+        const currentPassword = document.getElementById('current-password').value.trim().toLowerCase();
+        const newPassword = document.getElementById('new-password').value.trim();
+        const confirmPassword = document.getElementById('confirm-password').value.trim();
+
+        // Validações
+        if (!currentPassword || !newPassword || !confirmPassword) {
+            alert('Por favor, preencha todos os campos!');
+            return;
+        }
+
+        if (currentPassword !== user.pin.toLowerCase()) {
+            alert('Senha atual incorreta!');
+            document.getElementById('current-password').value = '';
+            document.getElementById('current-password').focus();
+            return;
+        }
+
+        if (newPassword.length < 6) {
+            alert('Nova senha deve ter no mínimo 6 caracteres!');
+            document.getElementById('new-password').focus();
+            return;
+        }
+
+        if (newPassword !== confirmPassword) {
+            alert('As senhas não conferem!');
+            document.getElementById('confirm-password').value = '';
+            document.getElementById('confirm-password').focus();
+            return;
+        }
+
+        if (newPassword.toLowerCase() === currentPassword) {
+            alert('A nova senha deve ser diferente da senha atual!');
+            document.getElementById('new-password').value = '';
+            document.getElementById('confirm-password').value = '';
+            document.getElementById('new-password').focus();
+            return;
+        }
+
+        // Atualizar no banco
+        try {
+            Loading.show('Alterando senha...');
+
+            const { error } = await supabaseClient
+                .from('app_users')
+                .update({
+                    pin: newPassword.toLowerCase(),
+                    must_change_password: false
+                })
+                .eq('id', user.id);
+
+            if (error) throw error;
+
+            // Atualizar usuário local
+            user.pin = newPassword.toLowerCase();
+            user.must_change_password = false;
+            Store.setCurrentUser(user);
+
+            Loading.hide();
+            Toast.show('Senha alterada com sucesso!', 'success');
+
+            // Aguardar 1 segundo e redirecionar
+            setTimeout(() => {
+                this.navigate('dashboard');
+            }, 1000);
+
+        } catch (error) {
+            Loading.hide();
+            console.error('Erro ao alterar senha:', error);
+            alert('Erro ao alterar senha. Tente novamente.');
+        }
+    },
+
     async login() {
         const userSelect = document.getElementById('login-user');
         const passwordInput = document.getElementById('login-password');
@@ -1537,6 +1693,13 @@ const App = {
             // Iniciar timeout de sessão e listeners de atividade
             this.startSessionTimeout();
             this.setupActivityListeners();
+
+            // ✨ NOVO: Verificar se precisa trocar senha
+            if (user.must_change_password) {
+                console.log('🔐 Usuário precisa trocar senha');
+                this.navigate('password-change');
+                return;
+            }
 
             // Navegar para dashboard
             this.navigate('dashboard');
