@@ -1,6 +1,7 @@
 // Service Worker for Barão de Mauá PWA
-const CACHE_NAME = 'barao-maua-v1';
-const RUNTIME_CACHE = 'barao-maua-runtime-v1';
+const CACHE_VERSION = '2026.02.01.001';
+const CACHE_NAME = `barao-maua-v${CACHE_VERSION}`;
+const RUNTIME_CACHE = `barao-maua-runtime-v${CACHE_VERSION}`;
 
 // Assets to cache on install
 const STATIC_ASSETS = [
@@ -16,7 +17,7 @@ const STATIC_ASSETS = [
 
 // Install event - cache static assets
 self.addEventListener('install', (event) => {
-    console.log('[SW] Installing service worker...');
+    console.log('[SW] Installing service worker v' + CACHE_VERSION);
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then((cache) => {
@@ -29,7 +30,7 @@ self.addEventListener('install', (event) => {
 
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
-    console.log('[SW] Activating service worker...');
+    console.log('[SW] Activating service worker v' + CACHE_VERSION);
     event.waitUntil(
         caches.keys().then((cacheNames) => {
             return Promise.all(
@@ -48,6 +49,12 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
     const { request } = event;
     const url = new URL(request.url);
+
+    // ALWAYS fetch version.json from network (never cache)
+    if (url.pathname === '/version.json') {
+        event.respondWith(fetch(request));
+        return;
+    }
 
     // Skip cross-origin requests
     if (url.origin !== location.origin) {

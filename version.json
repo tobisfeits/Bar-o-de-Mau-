@@ -1,0 +1,11 @@
+{
+    "version": "2026.02.01.001",
+    "timestamp": 1738449600000,
+    "build": "e5bd174",
+    "date": "2026-02-01T23:14:00Z",
+    "features": [
+        "Mandatory password change on first login",
+        "Auto-update detection",
+        "Cache busting"
+    ]
+}
