@@ -1,9 +1,10 @@
 {
-    "version": "2026.02.01.001",
-    "timestamp": 1738449600000,
-    "build": "e5bd174",
-    "date": "2026-02-01T23:14:00Z",
+    "version": "2026.02.02.001",
+    "timestamp": 1738540800000,
+    "build": "icon-update",
+    "date": "2026-02-02T10:55:00Z",
     "features": [
+        "Official club badge icons (with locomotive)",
         "Mandatory password change on first login",
         "Auto-update detection",
         "Cache busting"
