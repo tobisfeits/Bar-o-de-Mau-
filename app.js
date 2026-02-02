@@ -1100,7 +1100,7 @@ const Utils = {
 // VERSION CHECKER - Auto-Update Detection
 // ============================================
 const VersionChecker = {
-    currentVersion: '2026.02.02.004',
+    currentVersion: '2026.02.02.005',
     checkInterval: 30000, // 30 segundos
     intervalId: null,
 

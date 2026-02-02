@@ -1,15 +1,15 @@
 {
-    "version": "2026.02.02.004",
-    "timestamp": 1738545600000,
-    "build": "password-loop-fix",
-    "date": "2026-02-02T11:40:00Z",
+    "version": "2026.02.02.005",
+    "timestamp": 1738552800000,
+    "build": "profile-photos-backend",
+    "date": "2026-02-02T13:58:00Z",
     "features": [
-        "Fixed password change loop bug (comprehensive logging)",
+        "Profile photos support (backend ready)",
+        "Fixed password change loop bug",
         "EMERGENCY: Auto-update temporarily disabled",
         "Fixed timezone bug (UTC → America/Sao_Paulo)",
         "Fixed age calculation (removed +1 error)",
-        "Official club badge icons (with locomotive)",
-        "Mandatory password change on first login",
-        "Cache busting"
+        "Official club badge icons",
+        "Mandatory password change on first login"
     ]
 }
