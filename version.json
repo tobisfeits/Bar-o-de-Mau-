@@ -1,9 +1,10 @@
 {
-    "version": "2026.02.02.003",
-    "timestamp": 1738542000000,
-    "build": "emergency-disable-autoupdate",
-    "date": "2026-02-02T09:56:00Z",
+    "version": "2026.02.02.004",
+    "timestamp": 1738545600000,
+    "build": "password-loop-fix",
+    "date": "2026-02-02T11:40:00Z",
     "features": [
+        "Fixed password change loop bug (comprehensive logging)",
         "EMERGENCY: Auto-update temporarily disabled",
         "Fixed timezone bug (UTC → America/Sao_Paulo)",
         "Fixed age calculation (removed +1 error)",

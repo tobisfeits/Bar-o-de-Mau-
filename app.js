@@ -1100,7 +1100,7 @@ const Utils = {
 // VERSION CHECKER - Auto-Update Detection
 // ============================================
 const VersionChecker = {
-    currentVersion: '2026.02.02.003',
+    currentVersion: '2026.02.02.004',
     checkInterval: 30000, // 30 segundos
     intervalId: null,
 
@@ -1685,6 +1685,8 @@ const App = {
 
     async handlePasswordChange() {
         const user = Store.getCurrentUser();
+        console.log('🔐 Password change started for user:', user?.id, user?.name);
+
         if (!user) {
             alert('Erro: Usuário não encontrado!');
             this.navigate('login');
@@ -1701,12 +1703,15 @@ const App = {
             return;
         }
 
+        console.log('🔍 Validating current password...');
         if (currentPassword !== user.pin.toLowerCase()) {
+            console.error('❌ Current password incorrect');
             alert('Senha atual incorreta!');
             document.getElementById('current-password').value = '';
             document.getElementById('current-password').focus();
             return;
         }
+        console.log('✅ Current password validated');
 
         if (newPassword.length < 6) {
             alert('Nova senha deve ter no mínimo 6 caracteres!');
@@ -1733,33 +1738,80 @@ const App = {
         try {
             Loading.show('Alterando senha...');
 
-            const { error } = await supabaseClient
+            console.log('📤 Sending update to Supabase...');
+            console.log('   User ID:', user.id);
+            console.log('   New PIN:', newPassword.toLowerCase());
+            console.log('   Setting must_change_password: false');
+
+            const { data, error } = await supabaseClient
                 .from('app_users')
                 .update({
                     pin: newPassword.toLowerCase(),
                     must_change_password: false
                 })
-                .eq('id', user.id);
+                .eq('id', user.id)
+                .select(); // ✨ Get updated row to verify
 
-            if (error) throw error;
+            console.log('📥 Supabase response:', { data, error });
+
+            if (error) {
+                console.error('❌ Supabase error:', error);
+                throw error;
+            }
+
+            if (!data || data.length === 0) {
+                console.error('❌ No rows updated! Possible RLS issue.');
+                throw new Error('Nenhum registro foi atualizado. Verifique as permissões.');
+            }
+
+            console.log('✅ Database updated successfully:', data[0]);
+
+            // Verify the update
+            console.log('🔍 Verifying update...');
+            const { data: verifyData, error: verifyError } = await supabaseClient
+                .from('app_users')
+                .select('id, name, pin, must_change_password')
+                .eq('id', user.id)
+                .single();
+
+            console.log('📋 Verification result:', verifyData);
+
+            if (verifyError) {
+                console.error('⚠️ Verification error:', verifyError);
+            } else if (verifyData.must_change_password === true) {
+                console.error('⚠️ WARNING: must_change_password still true after update!');
+                throw new Error('Falha ao atualizar flag de senha. Tente novamente.');
+            } else {
+                console.log('✅ Verification passed: must_change_password =', verifyData.must_change_password);
+            }
 
             // Atualizar usuário local
+            console.log('💾 Updating local user data...');
             user.pin = newPassword.toLowerCase();
             user.must_change_password = false;
+
+            // Save to Store
             Store.setCurrentUser(user);
+
+            // Force save to localStorage (double-check)
+            localStorage.setItem('cd_current_user', JSON.stringify(user));
+
+            console.log('✅ Local user updated');
+            console.log('📦 LocalStorage check:', JSON.parse(localStorage.getItem('cd_current_user')));
 
             Loading.hide();
             Toast.show('Senha alterada com sucesso!', 'success');
 
             // Aguardar 1 segundo e redirecionar
             setTimeout(() => {
+                console.log('🔄 Navigating to dashboard...');
                 this.navigate('dashboard');
             }, 1000);
 
         } catch (error) {
             Loading.hide();
-            console.error('Erro ao alterar senha:', error);
-            alert('Erro ao alterar senha. Tente novamente.');
+            console.error('💥 Error changing password:', error);
+            alert(`Erro ao alterar senha: ${error.message || 'Tente novamente.'}`);
         }
     },
 
