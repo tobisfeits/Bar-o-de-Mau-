@@ -1,9 +1,11 @@
 {
-    "version": "2026.02.02.001",
-    "timestamp": 1738540800000,
-    "build": "icon-update",
-    "date": "2026-02-02T10:55:00Z",
+    "version": "2026.02.02.002",
+    "timestamp": 1738541100000,
+    "build": "timezone-age-fix",
+    "date": "2026-02-02T09:45:00Z",
     "features": [
+        "Fixed timezone bug (UTC → America/Sao_Paulo)",
+        "Fixed age calculation (removed +1 error)",
         "Official club badge icons (with locomotive)",
         "Mandatory password change on first login",
         "Auto-update detection",
