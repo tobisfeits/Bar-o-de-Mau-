@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste de Normalização de Nomes</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #0f172a;
+            color: #f1f5f9;
+        }
+
+        h1 {
+            color: #fbbf24;
+            text-align: center;
+        }
+
+        .test-case {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+
+        .input {
+            color: #ef4444;
+            font-weight: bold;
+        }
+
+        .output {
+            color: #10b981;
+            font-weight: bold;
+        }
+
+        .label {
+            color: #94a3b8;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🔤 Teste de Normalização de Nomes</h1>
+    <div id="results"></div>
+
+    <script src="sanitizer.js"></script>
+    <script>
+        // Test cases
+        const testCases = [
+            'TOBIAS FEITOSA DE MATOS',
+            'LUCAS DE ARAUJO TAVARES',
+            'DIANE GONÇALVES DA SILVA FEITOSA',
+            'JOSUÉ ARAUJO DE OLIVEIRA',
+            'MARIA HELENA FERNANDES GONÇALVES',
+            'ANA CLARA DE JESUS PINTO DUARTE',
+            'CARLOS EDUARDO CARVALHO SILVA FILHO',
+            'LAODICÉIA GONÇALVES DIAS DE SOUZA'
+        ];
+
+        const resultsDiv = document.getElementById('results');
+
+        testCases.forEach(name => {
+            const normalized = Sanitizer.normalizeName(name);
+
+            const testDiv = document.createElement('div');
+            testDiv.className = 'test-case';
+            testDiv.innerHTML = `
+                <div class="label">Entrada:</div>
+                <div class="input">${name}</div>
+                <div class="label" style="margin-top: 10px;">Saída:</div>
+                <div class="output">${normalized}</div>
+            `;
+
+            resultsDiv.appendChild(testDiv);
+        });
+    </script>
+</body>
+
+</html>
