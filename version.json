@@ -1,14 +1,14 @@
 {
-    "version": "2026.02.02.002",
-    "timestamp": 1738541100000,
-    "build": "timezone-age-fix",
-    "date": "2026-02-02T09:45:00Z",
+    "version": "2026.02.02.003",
+    "timestamp": 1738542000000,
+    "build": "emergency-disable-autoupdate",
+    "date": "2026-02-02T09:56:00Z",
     "features": [
+        "EMERGENCY: Auto-update temporarily disabled",
         "Fixed timezone bug (UTC → America/Sao_Paulo)",
         "Fixed age calculation (removed +1 error)",
         "Official club badge icons (with locomotive)",
         "Mandatory password change on first login",
-        "Auto-update detection",
         "Cache busting"
     ]
 }

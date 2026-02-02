@@ -1100,7 +1100,7 @@ const Utils = {
 // VERSION CHECKER - Auto-Update Detection
 // ============================================
 const VersionChecker = {
-    currentVersion: '2026.02.02.002',
+    currentVersion: '2026.02.02.003',
     checkInterval: 30000, // 30 segundos
     intervalId: null,
 
@@ -1253,8 +1253,11 @@ const App = {
         // Depois inicializar Store
         await Store.init();
 
-        // Inicializar verificador de versão
-        VersionChecker.init();
+        // 🚨 EMERGENCY: VersionChecker TEMPORARIAMENTE DESABILITADO
+        // Motivo: Loop infinito enquanto Vercel não deployar nova versão
+        // TODO: Reabilitar após Vercel deploy completar
+        // VersionChecker.init();
+        console.warn('⚠️ Auto-update temporariamente desabilitado');
 
         // Verificar autenticação
         const auth = localStorage.getItem('cd_auth');
