@@ -1,15 +1,13 @@
 {
-    "version": "2026.02.02.005",
-    "timestamp": 1738552800000,
-    "build": "profile-photos-backend",
-    "date": "2026-02-02T13:58:00Z",
+    "version": "2026.02.02.006",
+    "timestamp": 1738555200000,
+    "build": "profile-photos-ui",
+    "date": "2026-02-02T15:00:00Z",
     "features": [
-        "Profile photos support (backend ready)",
+        "Profile photos with upload/change/remove buttons",
+        "Photo display in member lists and profiles",
+        "Initials placeholder for members without photos",
         "Fixed password change loop bug",
-        "EMERGENCY: Auto-update temporarily disabled",
-        "Fixed timezone bug (UTC → America/Sao_Paulo)",
-        "Fixed age calculation (removed +1 error)",
-        "Official club badge icons",
-        "Mandatory password change on first login"
+        "EMERGENCY: Auto-update temporarily disabled"
     ]
 }

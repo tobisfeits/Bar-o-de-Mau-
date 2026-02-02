@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload de Fotos - Desbravadores</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            color: white;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #fbbf24;
+        }
+
+        .upload-section {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 20px;
+            margin-bottom: 30px;
+            backdrop-filter: blur(10px);
+        }
+
+        .file-input-wrapper {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .file-label {
+            display: inline-block;
+            padding: 15px 30px;
+            background: #fbbf24;
+            color: #1e293b;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        .file-label:hover {
+            background: #f59e0b;
+            transform: scale(1.05);
+        }
+
+        .photos-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .photo-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 15px;
+            border: 2px solid rgba(251, 191, 36, 0.3);
+        }
+
+        .photo-preview {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+
+        .member-select {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: 2px solid #fbbf24;
+            background: #1e293b;
+            color: white;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+
+        .upload-btn {
+            width: 100%;
+            padding: 10px;
+            background: #10b981;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        .upload-btn:hover {
+            background: #059669;
+        }
+
+        .upload-btn:disabled {
+            background: #6b7280;
+            cursor: not-allowed;
+        }
+
+        .status {
+            text-align: center;
+            margin-top: 10px;
+            font-size: 12px;
+        }
+
+        .success {
+            color: #10b981;
+        }
+
+        .error {
+            color: #ef4444;
+        }
+
+        .loading {
+            color: #fbbf24;
+        }
+
+        .info-box {
+            background: rgba(59, 130, 246, 0.2);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border-left: 4px solid #3b82f6;
+        }
+
+        .bulk-upload-btn {
+            width: 100%;
+            padding: 15px;
+            background: #8b5cf6;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 16px;
+            margin-top: 20px;
+            transition: all 0.3s;
+        }
+
+        .bulk-upload-btn:hover {
+            background: #7c3aed;
+        }
+
+        .bulk-upload-btn:disabled {
+            background: #6b7280;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>📸 Upload de Fotos - Desbravadores</h1>
+
+        <div class="info-box">
+            <strong>📋 Como usar:</strong>
+            <ol style="margin-left: 20px; margin-top: 10px;">
+                <li>Clique em "Selecionar Fotos" e escolha todas as fotos</li>
+                <li>Para cada foto, selecione o membro correspondente</li>
+                <li>Clique em "Upload em Lote" para enviar todas de uma vez</li>
+            </ol>
+            <p style="margin-top: 10px;"><strong>💡 Dica:</strong> Nomeie os arquivos com o nome do membro para
+                facilitar!</p>
+        </div>
+
+        <div class="upload-section">
+            <div class="file-input-wrapper">
+                <label for="file-input" class="file-label">
+                    📁 Selecionar Fotos
+                </label>
+                <input type="file" id="file-input" accept="image/*" multiple>
+            </div>
+
+            <div id="photos-container" class="photos-grid"></div>
+
+            <button id="bulk-upload-btn" class="bulk-upload-btn" style="display: none;">
+                🚀 Upload em Lote
+            </button>
+        </div>
+    </div>
+
+    <script type="module">
+        // Auto-carregar credenciais do Supabase
+        let supabaseClient;
+        let members = [];
+        let selectedFiles = [];
+
+        // Inicializar Supabase
+        async function initSupabase() {
+            try {
+                // Buscar credenciais da API
+                const response = await fetch('/api/env');
+                if (!response.ok) {
+                    throw new Error('Erro ao carregar configuração');
+                }
+
+                const env = await response.json();
+                const SUPABASE_URL = env.VITE_SUPABASE_URL;
+                const SUPABASE_ANON_KEY = env.VITE_SUPABASE_ANON_KEY;
+
+                if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+                    throw new Error('Credenciais do Supabase não encontradas');
+                }
+
+                console.log('✅ Credenciais carregadas');
+
+                // Criar cliente Supabase
+                const { createClient } = supabase;
+                supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+                console.log('✅ Supabase inicializado');
+
+                // Carregar membros
+                await loadMembers();
+
+            } catch (error) {
+                console.error('❌ Erro ao inicializar:', error);
+                alert(`Erro: ${error.message}\n\nAbra este arquivo pelo servidor local (npm run dev) ou pelo Vercel.`);
+            }
+        }
+
+        // Carregar membros do banco
+        async function loadMembers() {
+            const { data, error } = await supabaseClient
+                .from('members')
+                .select('id, name')
+                .order('name');
+
+            if (error) {
+                console.error('Erro ao carregar membros:', error);
+                alert('Erro ao carregar membros! Verifique as credenciais do Supabase.');
+                return;
+            }
+
+            members = data;
+            console.log(`✅ ${members.length} membros carregados`);
+        }
+
+        // Renderizar preview das fotos
+        function renderPhotos() {
+            const container = document.getElementById('photos-container');
+            const bulkBtn = document.getElementById('bulk-upload-btn');
+
+            if (selectedFiles.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #94a3b8;">Nenhuma foto selecionada</p>';
+                bulkBtn.style.display = 'none';
+                return;
+            }
+
+            bulkBtn.style.display = 'block';
+
+            container.innerHTML = selectedFiles.map((fileData, index) => `
+                <div class="photo-card" id="card-${index}">
+                    <img src="${fileData.preview}" class="photo-preview" alt="Preview">
+                    <p style="font-size: 12px; margin-bottom: 5px; color: #94a3b8;">${fileData.file.name}</p>
+                    <select class="member-select" id="member-${index}">
+                        <option value="">Selecione o membro...</option>
+                        ${members.map(m => `<option value="${m.id}">${m.name}</option>`).join('')}
+                    </select>
+                    <button class="upload-btn" onclick="uploadSingle(${index})">Upload Individual</button>
+                    <div class="status" id="status-${index}"></div>
+                </div>
+            `).join('');
+        }
+
+        // Upload de uma foto
+        async function uploadPhoto(fileData, memberId) {
+            const file = fileData.file;
+
+            // Validações
+            if (!file.type.startsWith('image/')) {
+                throw new Error('Arquivo deve ser uma imagem');
+            }
+
+            if (file.size > 5 * 1024 * 1024) {
+                throw new Error('Imagem muito grande (máximo 5MB)');
+            }
+
+            // Gerar nome único
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${memberId}_${Date.now()}.${fileExt}`;
+
+            // Upload para Storage
+            const { data, error } = await supabaseClient.storage
+                .from('member-photos')
+                .upload(fileName, file, {
+                    cacheControl: '3600',
+                    upsert: false
+                });
+
+            if (error) throw error;
+
+            // Obter URL pública
+            const { data: urlData } = supabaseClient.storage
+                .from('member-photos')
+                .getPublicUrl(fileName);
+
+            const photoUrl = urlData.publicUrl;
+
+            // Atualizar banco
+            const { error: updateError } = await supabaseClient
+                .from('members')
+                .update({ photo_url: photoUrl })
+                .eq('id', memberId);
+
+            if (updateError) throw updateError;
+
+            return photoUrl;
+        }
+
+        // Upload individual
+        window.uploadSingle = async function (index) {
+            const memberId = document.getElementById(`member-${index}`).value;
+            const statusEl = document.getElementById(`status-${index}`);
+            const btnEl = document.querySelector(`#card-${index} .upload-btn`);
+
+            if (!memberId) {
+                alert('Selecione um membro primeiro!');
+                return;
+            }
+
+            try {
+                btnEl.disabled = true;
+                statusEl.className = 'status loading';
+                statusEl.textContent = '⏳ Enviando...';
+
+                const url = await uploadPhoto(selectedFiles[index], memberId);
+
+                statusEl.className = 'status success';
+                statusEl.textContent = '✅ Enviado com sucesso!';
+                btnEl.textContent = '✓ Concluído';
+
+                console.log(`✅ Foto enviada: ${url}`);
+
+            } catch (error) {
+                console.error('Erro:', error);
+                statusEl.className = 'status error';
+                statusEl.textContent = `❌ ${error.message}`;
+                btnEl.disabled = false;
+            }
+        };
+
+        // Upload em lote
+        document.getElementById('bulk-upload-btn').addEventListener('click', async function () {
+            const btn = this;
+            let successCount = 0;
+            let errorCount = 0;
+
+            // Validar se todos têm membro selecionado
+            for (let i = 0; i < selectedFiles.length; i++) {
+                const memberId = document.getElementById(`member-${i}`).value;
+                if (!memberId) {
+                    alert(`Selecione um membro para a foto ${i + 1}!`);
+                    return;
+                }
+            }
+
+            btn.disabled = true;
+            btn.textContent = '⏳ Enviando...';
+
+            // Upload sequencial
+            for (let i = 0; i < selectedFiles.length; i++) {
+                const memberId = document.getElementById(`member-${i}`).value;
+                const statusEl = document.getElementById(`status-${i}`);
+                const btnEl = document.querySelector(`#card-${i} .upload-btn`);
+
+                try {
+                    btnEl.disabled = true;
+                    statusEl.className = 'status loading';
+                    statusEl.textContent = '⏳ Enviando...';
+
+                    await uploadPhoto(selectedFiles[i], memberId);
+
+                    statusEl.className = 'status success';
+                    statusEl.textContent = '✅ Enviado!';
+                    btnEl.textContent = '✓ Concluído';
+                    successCount++;
+
+                } catch (error) {
+                    console.error(`Erro na foto ${i + 1}:`, error);
+                    statusEl.className = 'status error';
+                    statusEl.textContent = `❌ ${error.message}`;
+                    btnEl.disabled = false;
+                    errorCount++;
+                }
+            }
+
+            btn.textContent = `✅ Concluído! (${successCount} ok, ${errorCount} erros)`;
+
+            if (errorCount === 0) {
+                setTimeout(() => {
+                    alert('🎉 Todas as fotos foram enviadas com sucesso!');
+                }, 500);
+            }
+        });
+
+        // Seleção de arquivos
+        document.getElementById('file-input').addEventListener('change', function (e) {
+            const files = Array.from(e.target.files);
+
+            selectedFiles = files.map(file => ({
+                file: file,
+                preview: URL.createObjectURL(file)
+            }));
+
+            renderPhotos();
+        });
+
+        // Inicializar
+        initSupabase();
+    </script>
+</body>
+
+</html>

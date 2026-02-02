@@ -1100,7 +1100,7 @@ const Utils = {
 // VERSION CHECKER - Auto-Update Detection
 // ============================================
 const VersionChecker = {
-    currentVersion: '2026.02.02.005',
+    currentVersion: '2026.02.02.006',
     checkInterval: 30000, // 30 segundos
     intervalId: null,
 
@@ -2175,15 +2175,7 @@ const App = {
                                     p-4 flex items-center justify-between cursor-pointer 
                                     active:scale-[0.98] transition-all hover:bg-slate-800/50">
                             <div class="flex items-center gap-3">
-                                ${member.image
-                ? `<img src="${member.image}" 
-                                           class="w-10 h-10 rounded-full object-cover border border-slate-700" 
-                                           alt="${member.name}">`
-                : `<div class="w-10 h-10 rounded-full bg-slate-800 
-                                                flex items-center justify-center text-slate-500">
-                                            <i data-lucide="user" class="w-6 h-6"></i>
-                                       </div>`
-            }
+                                ${PhotoManager.renderPhoto(member, 40)}
                                 <div class="flex flex-col">
                                     <div class="flex items-center gap-2">
                                         <span class="font-bold text-lg text-slate-200">${Sanitizer.normalizeName(member.name)}</span>
@@ -2273,19 +2265,15 @@ const App = {
                 </div>
                 
                 <div class="text-center border-b-2 border-dashed border-slate-700 pb-4 mb-6">
-                    <div class="flex flex-col items-center justify-center gap-2 mb-2">
-                        ${member.image
-                ? `<img src="${member.image}" 
-                                   class="w-24 h-24 rounded-full object-cover border-4 border-slate-800 shadow-lg" 
-                                   alt="${member.name}">`
-                : ''
-            }
-                        <h2 class="text-2xl font-black text-white uppercase tracking-wide leading-none">
-                            ${Sanitizer.normalizeName(member.name)}
-                        </h2>
-                    </div>
-                    <p class="text-sm font-bold text-slate-400 uppercase">Unidade: ${unit.name}</p>
+                <div class="flex flex-col items-center justify-center gap-3 mb-2">
+                    ${PhotoManager.renderPhoto(member, 96)}
+                    <h2 class="text-2xl font-black text-white uppercase tracking-wide leading-none">
+                        ${Sanitizer.normalizeName(member.name)}
+                    </h2>
+                    ${PhotoManager.renderUploadButton(member.id, member.photo_url)}
                 </div>
+                <p class="text-sm font-bold text-slate-400 uppercase">Unidade: ${unit.name}</p>
+            </div>
                 
                 <div class="bg-red-900/10 rounded-xl p-4 mb-6 border border-red-900/30 
                             flex items-center justify-between shadow-sm">
