@@ -2217,6 +2217,11 @@ const App = {
             return;
         }
 
+        // 🔍 DEBUG: Check member object structure
+        console.log('🔍 Member object:', member);
+        console.log('🔍 Member photo_url:', member.photo_url);
+        console.log('🔍 Member keys:', Object.keys(member));
+
         // Check RBAC permissions
         if (!RBAC.canEditMemberScore(member)) {
             Toast.show('Você não tem permissão para editar pontuações deste membro', 'error');
