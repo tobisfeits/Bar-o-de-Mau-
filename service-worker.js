@@ -1,126 +1,171 @@
-// Service Worker for Barão de Mauá PWA
-const CACHE_VERSION = '2026.02.01.001';
+// Service Worker for Barão de Mauá PWA - IMPROVED VERSION
+// Auto-update with network-first strategy for critical files
+
+const CACHE_VERSION = '2026.02.03.002'; // ✨ NEW VERSION
 const CACHE_NAME = `barao-maua-v${CACHE_VERSION}`;
 const RUNTIME_CACHE = `barao-maua-runtime-v${CACHE_VERSION}`;
+
+// Critical files that should ALWAYS be fetched from network first
+const NETWORK_FIRST_FILES = [
+    '/app.js',
+    '/photo-manager.js',
+    '/config.js',
+    '/version.json',
+    '/api/env'
+];
 
 // Assets to cache on install
 const STATIC_ASSETS = [
     '/',
     '/index.html',
-    '/app.js',
-    '/config.js',
     '/styles.css',
     '/manifest.json',
     '/icons/icon-192.png',
-    '/icons/icon-512.png'
+    '/icons/icon-512.png',
+    '/error-boundary.js',
+    '/logger.js',
+    '/sanitizer.js',
+    '/haptic.js',
+    '/performance.js'
 ];
 
 // Install event - cache static assets
 self.addEventListener('install', (event) => {
-    console.log('[SW] Installing service worker v' + CACHE_VERSION);
+    console.log('[SW] 🚀 Installing service worker v' + CACHE_VERSION);
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then((cache) => {
-                console.log('[SW] Caching static assets');
+                console.log('[SW] 📦 Caching static assets');
                 return cache.addAll(STATIC_ASSETS);
             })
-            .then(() => self.skipWaiting())
+            .then(() => {
+                console.log('[SW] ⚡ Skipping waiting - activating immediately');
+                return self.skipWaiting();
+            })
     );
 });
 
-// Activate event - clean up old caches
+// Activate event - clean up old caches and take control immediately
 self.addEventListener('activate', (event) => {
-    console.log('[SW] Activating service worker v' + CACHE_VERSION);
+    console.log('[SW] ✅ Activating service worker v' + CACHE_VERSION);
     event.waitUntil(
         caches.keys().then((cacheNames) => {
             return Promise.all(
                 cacheNames
                     .filter((name) => name !== CACHE_NAME && name !== RUNTIME_CACHE)
                     .map((name) => {
-                        console.log('[SW] Deleting old cache:', name);
+                        console.log('[SW] 🗑️ Deleting old cache:', name);
                         return caches.delete(name);
                     })
             );
-        }).then(() => self.clients.claim())
+        }).then(() => {
+            console.log('[SW] 🎯 Taking control of all clients');
+            return self.clients.claim();
+        })
     );
 });
 
-// Fetch event - network first, fallback to cache
+// Helper: Check if URL should use network-first strategy
+function shouldUseNetworkFirst(url) {
+    return NETWORK_FIRST_FILES.some(file => url.includes(file));
+}
+
+// Helper: Check if request is for Supabase
+function isSupabaseRequest(url) {
+    return url.includes('supabase.co');
+}
+
+// Network-first strategy (for critical files)
+async function networkFirst(request) {
+    try {
+        const networkResponse = await fetch(request);
+
+        // Only cache successful responses
+        if (networkResponse.ok) {
+            const cache = await caches.open(RUNTIME_CACHE);
+            cache.put(request, networkResponse.clone());
+        }
+
+        return networkResponse;
+    } catch (error) {
+        console.log('[SW] 📡 Network failed, trying cache:', request.url);
+        const cachedResponse = await caches.match(request);
+        if (cachedResponse) {
+            return cachedResponse;
+        }
+        throw error;
+    }
+}
+
+// Cache-first strategy (for static assets)
+async function cacheFirst(request) {
+    const cachedResponse = await caches.match(request);
+    if (cachedResponse) {
+        console.log('[SW] 💾 Serving from cache:', request.url);
+        return cachedResponse;
+    }
+
+    try {
+        const networkResponse = await fetch(request);
+        if (networkResponse.ok) {
+            const cache = await caches.open(RUNTIME_CACHE);
+            cache.put(request, networkResponse.clone());
+        }
+        return networkResponse;
+    } catch (error) {
+        console.error('[SW] ❌ Failed to fetch:', request.url);
+        throw error;
+    }
+}
+
+// Fetch event - smart routing
 self.addEventListener('fetch', (event) => {
     const { request } = event;
-    const url = new URL(request.url);
+    const url = request.url;
 
-    // ALWAYS fetch version.json from network (never cache)
-    if (url.pathname === '/version.json') {
-        event.respondWith(fetch(request));
+    // Skip non-GET requests
+    if (request.method !== 'GET') {
         return;
     }
 
-    // Skip cross-origin requests
-    if (url.origin !== location.origin) {
-        // For Supabase API calls, use network-first strategy
-        if (url.hostname.includes('supabase')) {
-            event.respondWith(networkFirst(request));
-            return;
-        }
+    // Skip Supabase requests (always go to network)
+    if (isSupabaseRequest(url)) {
         return;
     }
 
-    // For navigation requests, use network-first
-    if (request.mode === 'navigate') {
+    // Skip chrome-extension and other non-http requests
+    if (!url.startsWith('http')) {
+        return;
+    }
+
+    // Use network-first for critical files
+    if (shouldUseNetworkFirst(url)) {
+        console.log('[SW] 🌐 Network-first:', url);
         event.respondWith(networkFirst(request));
         return;
     }
 
-    // For static assets, use cache-first
+    // Use cache-first for everything else
     event.respondWith(cacheFirst(request));
 });
 
-// Cache-first strategy
-async function cacheFirst(request) {
-    const cache = await caches.open(CACHE_NAME);
-    const cached = await cache.match(request);
-
-    if (cached) {
-        console.log('[SW] Serving from cache:', request.url);
-        return cached;
-    }
-
-    try {
-        const response = await fetch(request);
-        if (response.ok) {
-            cache.put(request, response.clone());
-        }
-        return response;
-    } catch (error) {
-        console.error('[SW] Fetch failed:', error);
-        throw error;
-    }
-}
-
-// Network-first strategy
-async function networkFirst(request) {
-    const cache = await caches.open(RUNTIME_CACHE);
-
-    try {
-        const response = await fetch(request);
-        if (response.ok) {
-            cache.put(request, response.clone());
-        }
-        return response;
-    } catch (error) {
-        console.log('[SW] Network failed, serving from cache:', request.url);
-        const cached = await cache.match(request);
-        if (cached) {
-            return cached;
-        }
-        throw error;
-    }
-}
-
-// Listen for messages from the app
+// Listen for messages from clients
 self.addEventListener('message', (event) => {
     if (event.data && event.data.type === 'SKIP_WAITING') {
+        console.log('[SW] 📨 Received SKIP_WAITING message');
         self.skipWaiting();
     }
+
+    if (event.data && event.data.type === 'CLEAR_CACHE') {
+        console.log('[SW] 🗑️ Clearing all caches');
+        event.waitUntil(
+            caches.keys().then((cacheNames) => {
+                return Promise.all(
+                    cacheNames.map((name) => caches.delete(name))
+                );
+            })
+        );
+    }
 });
+
+console.log('[SW] 🎉 Service Worker v' + CACHE_VERSION + ' loaded');
