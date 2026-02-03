@@ -67,6 +67,12 @@ const PhotoManager = {
 
             console.log('✅ Member photo_url updated');
 
+            // Clear cache to force reload of member data
+            if (typeof Cache !== 'undefined') {
+                Cache.clear();
+                console.log('🗑️ Cache cleared');
+            }
+
             Loading.hide();
             Toast.show('Foto atualizada com sucesso!', 'success');
 

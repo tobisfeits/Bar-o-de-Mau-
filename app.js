@@ -598,7 +598,7 @@ const DataAdapter = {
                     id: member.id,
                     name: member.name,
                     unitId: member.unit_id,
-                    image: member.image,
+                    photo_url: member.photo_url,  // ✨ FIXED: Use photo_url instead of image
                     isCounselor: member.is_counselor
                 }));
 
