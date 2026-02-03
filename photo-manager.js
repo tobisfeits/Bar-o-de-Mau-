@@ -221,8 +221,8 @@ const PhotoManager = {
         try {
             await this.uploadPhoto(memberId, file);
             // Reload current view to show new photo
-            if (App.currentView === 'member-detail') {
-                App.navigate('member-detail', { id: memberId });
+            if (App.currentView === 'scoring') {
+                App.navigate('scoring', { memberId: memberId });
             }
         } catch (error) {
             // Error already handled in uploadPhoto
