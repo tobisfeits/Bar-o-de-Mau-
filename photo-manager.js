@@ -220,10 +220,10 @@ const PhotoManager = {
 
         try {
             await this.uploadPhoto(memberId, file);
-            // Reload current view to show new photo
-            if (App.currentView === 'scoring') {
-                App.navigate('scoring', { memberId: memberId });
-            }
+            // Reload page to show new photo
+            setTimeout(() => {
+                window.location.reload();
+            }, 500);
         } catch (error) {
             // Error already handled in uploadPhoto
         }
