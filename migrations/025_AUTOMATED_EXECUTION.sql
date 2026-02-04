@@ -2,7 +2,7 @@
 -- SCRIPT AUTOMÁTICO: Migration 025 + Testes
 -- ============================================
 -- Execute este script COMPLETO de uma vez no Supabase SQL Editor
--- Ele vai corrigir a função E aplicar as mudanças automaticamente
+-- Versão STANDALONE (não depende de procedures externas)
 
 -- ============================================
 -- PARTE 1: CORRIGIR FUNÇÃO
@@ -50,16 +50,17 @@ END;
 $$ LANGUAGE plpgsql IMMUTABLE;
 
 -- ============================================
--- PARTE 2: PREVIEW DE MUDANÇAS
+-- PARTE 2: PREVIEW E APLICAR MUDANÇAS
 -- ============================================
 
 DO $$
 DECLARE
     v_member RECORD;
-    v_new_unit TEXT;
-    v_current_unit TEXT;
+    v_new_unit_name TEXT;
+    v_new_unit_id TEXT;
     v_will_change INTEGER := 0;
-    v_will_skip INTEGER := 0;
+    v_updated INTEGER := 0;
+    v_skipped INTEGER := 0;
 BEGIN
     RAISE NOTICE '';
     RAISE NOTICE '✅ Função corrigida!';
@@ -67,40 +68,75 @@ BEGIN
     RAISE NOTICE '📋 PREVIEW DE MUDANÇAS:';
     RAISE NOTICE '========================';
     
+    -- Loop through all members
     FOR v_member IN 
-        SELECT m.id, m.name, m.birth_date, m.gender, m.role, u.name as current_unit
+        SELECT m.id, m.name, m.birth_date, m.gender, m.role, m.unit_id, u.name as current_unit
         FROM members m
         LEFT JOIN units u ON m.unit_id = u.id
         WHERE m.birth_date IS NOT NULL
         ORDER BY m.name
     LOOP
-        v_new_unit := classify_member_unit(v_member.birth_date, v_member.gender, v_member.role);
+        -- Get suggested unit
+        v_new_unit_name := classify_member_unit(v_member.birth_date, v_member.gender, v_member.role);
         
-        IF v_new_unit IS NOT NULL AND v_new_unit != v_member.current_unit THEN
-            RAISE NOTICE '🔄 % : % → %', v_member.name, v_member.current_unit, v_new_unit;
+        -- Show preview
+        IF v_new_unit_name IS NOT NULL AND v_new_unit_name != v_member.current_unit THEN
+            RAISE NOTICE '🔄 % : % → %', v_member.name, v_member.current_unit, v_new_unit_name;
             v_will_change := v_will_change + 1;
-        ELSIF v_new_unit IS NULL THEN
-            v_will_skip := v_will_skip + 1;
+        ELSIF v_new_unit_name IS NULL THEN
+            v_skipped := v_skipped + 1;
         END IF;
     END LOOP;
     
     RAISE NOTICE '';
-    RAISE NOTICE '📊 RESUMO: % mudanças, % sem mudança', v_will_change, v_will_skip;
+    RAISE NOTICE '📊 RESUMO PREVIEW: % mudanças, % sem mudança', v_will_change, v_skipped;
+    RAISE NOTICE '';
+    RAISE NOTICE '🔄 APLICANDO MUDANÇAS...';
+    RAISE NOTICE '';
+    
+    -- Reset counters
+    v_updated := 0;
+    v_skipped := 0;
+    
+    -- Now actually update
+    FOR v_member IN 
+        SELECT m.id, m.name, m.birth_date, m.gender, m.role, m.unit_id
+        FROM members m
+        WHERE m.birth_date IS NOT NULL
+        ORDER BY m.name
+    LOOP
+        -- Get new unit name
+        v_new_unit_name := classify_member_unit(v_member.birth_date, v_member.gender, v_member.role);
+        
+        -- Only update if classification returned a unit
+        IF v_new_unit_name IS NOT NULL THEN
+            -- Get unit ID from unit name
+            SELECT id INTO v_new_unit_id
+            FROM units 
+            WHERE name = v_new_unit_name 
+            LIMIT 1;
+            
+            -- Update member's unit if found and different
+            IF v_new_unit_id IS NOT NULL AND v_new_unit_id != v_member.unit_id THEN
+                UPDATE members 
+                SET unit_id = v_new_unit_id
+                WHERE id = v_member.id;
+                
+                v_updated := v_updated + 1;
+            ELSE
+                v_skipped := v_skipped + 1;
+            END IF;
+        ELSE
+            v_skipped := v_skipped + 1;
+        END IF;
+    END LOOP;
+    
+    RAISE NOTICE '✅ Mudanças aplicadas: % atualizados, % sem mudança', v_updated, v_skipped;
     RAISE NOTICE '';
 END $$;
 
 -- ============================================
--- PARTE 3: APLICAR MUDANÇAS
--- ============================================
-
-DO $$
-BEGIN
-    CALL update_member_units();
-    RAISE NOTICE '✅ Mudanças aplicadas!';
-END $$;
-
--- ============================================
--- PARTE 4: TESTES DE VERIFICAÇÃO
+-- PARTE 3: TESTES DE VERIFICAÇÃO
 -- ============================================
 
 -- Teste 1: Verificar faixas etárias
