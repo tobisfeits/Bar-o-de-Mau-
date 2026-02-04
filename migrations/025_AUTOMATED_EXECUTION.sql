@@ -49,8 +49,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql IMMUTABLE;
 
-RAISE NOTICE '✅ Função corrigida!';
-
 -- ============================================
 -- PARTE 2: PREVIEW DE MUDANÇAS
 -- ============================================
@@ -63,6 +61,8 @@ DECLARE
     v_will_change INTEGER := 0;
     v_will_skip INTEGER := 0;
 BEGIN
+    RAISE NOTICE '';
+    RAISE NOTICE '✅ Função corrigida!';
     RAISE NOTICE '';
     RAISE NOTICE '📋 PREVIEW DE MUDANÇAS:';
     RAISE NOTICE '========================';
@@ -93,9 +93,11 @@ END $$;
 -- PARTE 3: APLICAR MUDANÇAS
 -- ============================================
 
-CALL update_member_units();
-
-RAISE NOTICE '✅ Mudanças aplicadas!';
+DO $$
+BEGIN
+    CALL update_member_units();
+    RAISE NOTICE '✅ Mudanças aplicadas!';
+END $$;
 
 -- ============================================
 -- PARTE 4: TESTES DE VERIFICAÇÃO
