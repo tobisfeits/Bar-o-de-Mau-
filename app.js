@@ -589,6 +589,7 @@ const DataAdapter = {
                 const { data, error } = await supabaseClient
                     .from('members')
                     .select('*')
+                    .eq('active', true)
                     .order('name');
 
                 if (error) throw error;
