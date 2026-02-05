@@ -1,11 +1,12 @@
 -- ============================================
--- MIGRATION 029: FULL SYNC & CLEANUP
+-- MIGRATION 029 (FIXED): FULL SYNC & CLEANUP
 -- ============================================
+-- Fixes NULL unit_id error by improving lookup
 -- 1. Updates ALL members from the official list
--- 2. Inactivates ANY member NOT in the list (e.g. Pedro Henrique)
+-- 2. Inactivates ANY member NOT in the list
 -- 3. Forces Unit/Role updates (Fixes Carlos Eduardo)
 
--- Add 'active' column if it doesn't exist (soft delete)
+-- Add active column if missing
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'members' AND column_name = 'active') THEN
@@ -13,19 +14,31 @@ BEGIN
     END IF;
 END $$;
 
--- HELPER: Get unit ID safely
+-- HELPER: Improved Unit Lookup (Handles Acients/Case)
 CREATE OR REPLACE FUNCTION get_unit_id_safe_v2(p_unit_name TEXT) 
 RETURNS TEXT AS $$
 DECLARE
     v_unit_id TEXT;
 BEGIN
+    -- 1. Try exact match (Case insensitive)
     SELECT id INTO v_unit_id FROM units WHERE UPPER(TRIM(name)) = UPPER(TRIM(p_unit_name)) LIMIT 1;
+    
+    -- 2. If not found, try without accents (Barões -> Baroes)
+    IF v_unit_id IS NULL AND p_unit_name LIKE '%Barões%' THEN
+        SELECT id INTO v_unit_id FROM units WHERE UPPER(name) LIKE '%BAROES%' LIMIT 1;
+    END IF;
+    
+    -- 3. If still NULL, raise clear error
+    IF v_unit_id IS NULL THEN
+        RAISE EXCEPTION 'Unit not found: %', p_unit_name;
+    END IF;
+    
     RETURN v_unit_id;
 END;
 $$ LANGUAGE plpgsql;
 
 -- ============================================
--- STEP 1: SYNC MEMBERS (Update existing + Insert new)
+-- STEP 1: SYNC MEMBERS
 -- ============================================
 
 DO $$
@@ -56,17 +69,13 @@ DECLARE
     v_updated_count INTEGER := 0;
     v_inactivated_count INTEGER := 0;
 BEGIN
-    RAISE NOTICE '🚀 STARTING FULL SYNC...';
+    RAISE NOTICE '🚀 STARTING FULL SYNC (FIXED)...';
 
-    -- 1. UPDATE MEMBERS FROM LIST
-    
-    -- Carlos Eduardo Carvalho Silva Filho (FIX UNIT)
+    -- CARLOS EDUARDO (Force Barões)
     v_unit_id := get_unit_id_safe_v2('Barões');
     UPDATE members SET birth_date = '2009-07-30', role = 'DESBRAVADOR', unit_id = v_unit_id, gender = 'M', active = true
     WHERE name = 'CARLOS EDUARDO CARVALHO SILVA FILHO';
-    v_updated_count := v_updated_count + 1;
 
-    -- Update remaining members (Bulk update logic for brevity in this script)
     -- Imperatrizes
     v_unit_id := get_unit_id_safe_v2('Imperatrizes');
     UPDATE members SET unit_id = v_unit_id, role = 'DESBRAVADOR', birth_date = '2016-02-22', active = true WHERE name = 'CATARINA GONÇALVES FEITOSA';
@@ -109,7 +118,7 @@ BEGIN
     UPDATE members SET unit_id = v_unit_id, role = 'DESBRAVADOR', birth_date = '2011-08-18', active = true WHERE name = 'GABRIEL BUENO PINHEIRO';
     UPDATE members SET unit_id = v_unit_id, role = 'DESBRAVADOR', birth_date = '2011-02-01', active = true WHERE name = 'ARTHUR BUENO AMANCIO DA SILVA';
     UPDATE members SET unit_id = v_unit_id, role = 'DESBRAVADOR', birth_date = '2010-03-03', active = true WHERE name = 'JOSUÉ ARAUJO DE OLIVEIRA';
-    
+
     -- Baronesas
     v_unit_id := get_unit_id_safe_v2('Baronesas');
     UPDATE members SET unit_id = v_unit_id, role = 'DESBRAVADOR', birth_date = '2011-02-15', active = true WHERE name = 'VITORIA MEL SANTANA DANTAS';
@@ -131,7 +140,7 @@ BEGIN
     UPDATE members SET unit_id = v_unit_id, role = 'INSTRUTOR', birth_date = '1982-10-19', active = true WHERE name = 'ROBSON DE ALMEIDA SILVA';
     UPDATE members SET unit_id = v_unit_id, role = 'DIRETOR ASSOCIADO', birth_date = '1973-04-16', active = true WHERE name = 'VÂNIA VIEIRA SILVA AMORIM';
 
-    -- Conselheiros (Units)
+    -- Conselheiros per unit
     v_unit_id := get_unit_id_safe_v2('Imperadores');
     UPDATE members SET unit_id = v_unit_id, role = 'CONSELHEIRO', birth_date = '2004-07-01', active = true WHERE name = 'EDUARDO MARQUES DE OLIVEIRA';
     UPDATE members SET unit_id = v_unit_id, role = 'DIRETOR ASSOCIADO', birth_date = '1985-02-02', active = true WHERE name = 'TOBIAS FEITOSA DE MATOS';
@@ -153,31 +162,20 @@ BEGIN
     UPDATE members SET unit_id = v_unit_id, role = 'CONSELHEIRO', birth_date = '1995-06-11', active = true WHERE name = 'LUCAS DE ARAUJO TAVARES';
     UPDATE members SET unit_id = v_unit_id, role = 'CONSELHEIRO', birth_date = '1976-03-17', active = true WHERE name = 'MARLON FERREIRA DA SILVA AMORIM';
 
-    --------------------------------------------------
-    -- 2. INACTIVATE MEMBERS NOT IN THE LIST
-    --------------------------------------------------
-    
-    UPDATE members 
-    SET active = false 
-    WHERE name != ALL(v_member_names);
+    -- INACTIVATE OTHERS
+    UPDATE members SET active = false WHERE name != ALL(v_member_names);
     
     GET DIAGNOSTICS v_inactivated_count = ROW_COUNT;
-    
-    RAISE NOTICE '';
-    RAISE NOTICE '✅ SYNC COMPLETE!';
-    RAISE NOTICE '  - Inactivated: % members', v_inactivated_count;
-    RAISE NOTICE '  - Carlos Eduardo set to Barões';
-    RAISE NOTICE '';
+    RAISE NOTICE '✅ DONE. Inactivated % members.', v_inactivated_count;
+
 END $$;
 
--- Drop trigger if it exists to prevent auto-reclassification blocking our manual fix
+-- Drop trigger to prevent interference
 DROP TRIGGER IF EXISTS trigger_classify_member_unit ON members;
 
--- Verification
-SELECT name, role, active, u.name as unit, 
-       EXTRACT(YEAR FROM AGE(DATE '2026-07-30', birth_date)) as age
+-- VERIFICATION
+SELECT m.name, m.role, m.active, u.name as unit 
 FROM members m
 LEFT JOIN units u ON m.unit_id = u.id
-WHERE name IN ('CARLOS EDUARDO CARVALHO SILVA FILHO', 'PEDRO HENRIQUE APOLINÁRIO FEITOSA')
-   OR active = false
-ORDER BY name;
+WHERE m.name LIKE 'CARLOS EDUARDO%' OR m.active = false
+ORDER BY m.name;
