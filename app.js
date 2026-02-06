@@ -1099,9 +1099,7 @@ const Store = {
     async deleteMember(memberId) {
         console.warn('deleteMember is deprecated, use inactivateMember');
         return this.inactivateMember(memberId);
-    }
-        this.set(CONFIG.STORAGE_KEYS.SCORES, scores);
-},
+    },
 
     getMemberHistory(memberId) {
         const allScores = this.getScores();
