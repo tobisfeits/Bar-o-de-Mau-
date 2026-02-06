@@ -599,8 +599,9 @@ const DataAdapter = {
                     id: member.id,
                     name: member.name,
                     unitId: member.unit_id,
-                    photo_url: member.photo_url,  // ✨ FIXED: Use photo_url instead of image
-                    isCounselor: member.is_counselor
+                    photo_url: member.photo_url,
+                    isCounselor: member.is_counselor,
+                    isManualUnit: member.is_manual_unit // ✨ Map manual override flag
                 }));
 
                 Cache.set('members', members);
@@ -618,20 +619,22 @@ const DataAdapter = {
         }
     },
 
-    async saveMember(member) {
+    saveMember(member) {
         if (this.useSupabase()) {
             // Converter camelCase para snake_case
             const dbMember = {
                 id: member.id,
                 name: member.name,
-                unit_id: member.unitId,  // ← Conversão aqui
+                unit_id: member.unitId,
                 image: member.image,
-                is_counselor: member.isCounselor || false  // ← Conversão aqui
+                is_counselor: member.isCounselor || false,
+                is_manual_unit: member.isManualUnit || false // ✨ Support manual override
             };
-            const { error } = await supabaseClient
+            // Note: Upsert might not prevent changing unit if we don't handle logic here, 
+            // but we usually use specific update methods for critical changes.
+            return supabaseClient
                 .from('members')
                 .upsert(dbMember);
-            if (error) console.error('Erro ao salvar membro:', error);
         } else {
             const members = JSON.parse(localStorage.getItem(CONFIG.STORAGE_KEYS.MEMBERS) || '[]');
             const index = members.findIndex(m => m.id === member.id);
@@ -641,6 +644,45 @@ const DataAdapter = {
                 members.push(member);
             }
             localStorage.setItem(CONFIG.STORAGE_KEYS.MEMBERS, JSON.stringify(members));
+            return Promise.resolve();
+        }
+    },
+
+    async inactivateMember(memberId) {
+        if (this.useSupabase()) {
+            const { error } = await supabaseClient
+                .from('members')
+                .update({ active: false })
+                .eq('id', memberId);
+            if (error) throw error;
+        } else {
+            // LocalStorage fallback (simulating inactivation by removing or marking)
+            let members = JSON.parse(localStorage.getItem(CONFIG.STORAGE_KEYS.MEMBERS) || '[]');
+            // Filter out directly for LS to simulate "inactivation" relative to "active" list
+            members = members.filter(m => m.id !== memberId);
+            localStorage.setItem(CONFIG.STORAGE_KEYS.MEMBERS, JSON.stringify(members));
+        }
+    },
+
+    async updateMemberUnit(memberId, unitId, isManual = false) {
+        if (this.useSupabase()) {
+            const updateData = { unit_id: unitId };
+            if (isManual) {
+                updateData.is_manual_unit = true;
+            }
+            const { error } = await supabaseClient
+                .from('members')
+                .update(updateData)
+                .eq('id', memberId);
+            if (error) throw error;
+        } else {
+            const members = JSON.parse(localStorage.getItem(CONFIG.STORAGE_KEYS.MEMBERS) || '[]');
+            const member = members.find(m => m.id === memberId);
+            if (member) {
+                member.unitId = unitId;
+                if (isManual) member.isManualUnit = true;
+                localStorage.setItem(CONFIG.STORAGE_KEYS.MEMBERS, JSON.stringify(members));
+            }
         }
     },
 
@@ -752,6 +794,44 @@ const DataAdapter = {
             if (!scores[dateKey]) scores[dateKey] = {};
             scores[dateKey][counselorId] = scoreData;
             localStorage.setItem(CONFIG.STORAGE_KEYS.COUNSELOR_SCORES, JSON.stringify(scores));
+        }
+    },
+
+    async inactivateMember(memberId) {
+        if (this.useSupabase()) {
+            const { error } = await supabaseClient
+                .from('members')
+                .update({ active: false })
+                .eq('id', memberId);
+            if (error) throw error;
+        } else {
+            // LocalStorage fallback (simulating inactivation by removing or marking)
+            let members = JSON.parse(localStorage.getItem(CONFIG.STORAGE_KEYS.MEMBERS) || '[]');
+            // Filter out directly for LS to simulate "inactivation" relative to "active" list
+            members = members.filter(m => m.id !== memberId);
+            localStorage.setItem(CONFIG.STORAGE_KEYS.MEMBERS, JSON.stringify(members));
+        }
+    },
+
+    async updateMemberUnit(memberId, unitId, isManual = false) {
+        if (this.useSupabase()) {
+            const updateData = { unit_id: unitId };
+            if (isManual) {
+                updateData.is_manual_unit = true;
+            }
+            const { error } = await supabaseClient
+                .from('members')
+                .update(updateData)
+                .eq('id', memberId);
+            if (error) throw error;
+        } else {
+            let members = JSON.parse(localStorage.getItem(CONFIG.STORAGE_KEYS.MEMBERS) || '[]');
+            const index = members.findIndex(m => m.id === memberId);
+            if (index >= 0) {
+                members[index].unitId = unitId;
+                if (isManual) members[index].isManualUnit = true;
+                localStorage.setItem(CONFIG.STORAGE_KEYS.MEMBERS, JSON.stringify(members));
+            }
         }
     }
 };
@@ -985,22 +1065,43 @@ const Store = {
         return newMember;
     },
 
-    async deleteMember(memberId) {
-        // Para Supabase, precisaríamos de um método delete no DataAdapter
-        // Por enquanto, mantém localStorage
-        let members = await this.getMembers();
-        members = members.filter(m => m.id !== memberId);
-        this.set(CONFIG.STORAGE_KEYS.MEMBERS, members);
+    async inactivateMember(memberId) {
+        try {
+            await DataAdapter.inactivateMember(memberId);
 
-        // Limpar pontuações
-        const scores = this.getScores();
-        Object.keys(scores).forEach(date => {
-            if (scores[date][memberId]) {
-                delete scores[date][memberId];
-            }
-        });
-        this.set(CONFIG.STORAGE_KEYS.SCORES, scores);
+            // Clear cache
+            Cache.clear();
+
+            // Also clean up local scores for good measure
+            const scores = this.getScores();
+            // We don't delete historical scores for inactivation usually, 
+            // but if desired we could. For now, we just hide the member.
+
+            return true;
+        } catch (error) {
+            console.error('Error inactivating member:', error);
+            throw error;
+        }
     },
+
+    async updateMemberUnit(memberId, unitId, isManual = false) {
+        try {
+            await DataAdapter.updateMemberUnit(memberId, unitId, isManual);
+            Cache.clear();
+            return true;
+        } catch (error) {
+            console.error('Error updating member unit:', error);
+            throw error;
+        }
+    },
+
+    // Deprecated alias
+    async deleteMember(memberId) {
+        console.warn('deleteMember is deprecated, use inactivateMember');
+        return this.inactivateMember(memberId);
+    }
+        this.set(CONFIG.STORAGE_KEYS.SCORES, scores);
+},
 
     getMemberHistory(memberId) {
         const allScores = this.getScores();
@@ -2278,7 +2379,28 @@ const App = {
                     </h2>
                     ${PhotoManager.renderUploadButton(member.id, member.photo_url)}
                 </div>
-                <p class="text-sm font-bold text-slate-400 uppercase">Unidade: ${unit.name}</p>
+                <div class="mt-2">
+                    ${RBAC.isSuperAdmin() ? `
+                        <div class="flex items-center gap-2 justify-center group relative inline-block">
+                             <div class="relative">
+                                <select onchange="App.handleUnitChange('${member.id}', this.value)" 
+                                        class="appearance-none cursor-pointer bg-slate-800 hover:bg-slate-700 
+                                            text-brand-gold text-sm font-bold uppercase tracking-wider
+                                            rounded-lg pl-3 pr-8 py-1.5 border border-slate-700 
+                                            focus:border-brand-gold focus:ring-1 focus:ring-brand-gold/50 
+                                            outline-none transition-all text-center shadow-sm">
+                                    ${units.map(u => `<option value="${u.id}" ${u.id === unit.id ? 'selected' : ''}>${u.name}</option>`).join('')}
+                                </select>
+                                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-brand-gold">
+                                    <i data-lucide="chevron-down" class="w-4 h-4"></i>
+                                </div>
+                             </div>
+                            ${member.isManualUnit ? '<span class="absolute -right-8 text-xs bg-slate-800 px-1 rounded border border-slate-700 text-brand-gold cursor-help" title="Movido Manualmente (Regras ignoradas)">🔒</span>' : ''}
+                        </div>
+                    ` : `
+                        <p class="text-sm font-bold text-slate-400 uppercase">Unidade: ${unit.name}</p>
+                    `}
+                </div>
             </div>
                 
                 <div class="bg-red-900/10 rounded-xl p-4 mb-6 border border-red-900/30 
@@ -2333,14 +2455,14 @@ const App = {
                         <i data-lucide="save" class="w-6 h-6"></i>
                     </button>
                     
-                    <button onclick="App.removeMemberPrompt('${memberId}')" 
+                    <button onclick="App.inactivateMemberPrompt('${memberId}')" 
                             class="w-14 h-14 rounded-full font-bold text-white
-                                   bg-red-600 dark:bg-red-500 shadow-xl shadow-red-600/30
+                                   bg-slate-700 shadow-xl shadow-slate-900/50 border border-slate-600
                                    flex items-center justify-center 
                                    active:scale-95 transition-all 
-                                   hover:bg-red-700 dark:hover:bg-red-400"
-                            title="Remover Desbravador">
-                        <i data-lucide="x" class="w-6 h-6"></i>
+                                   hover:bg-red-900/80 hover:border-red-500 hover:text-red-200"
+                            title="Inativar Desbravador">
+                        <i data-lucide="archive" class="w-6 h-6"></i>
                     </button>
                 </div>
             </div>
@@ -2614,6 +2736,59 @@ const App = {
         if (this.reAuthCallback) {
             this.reAuthCallback(false);
             this.reAuthCallback = null;
+        }
+    },
+
+    inactivateMemberPrompt(memberId) {
+        if (!confirm('ATENÇÃO: Deseja inativar este desbravador?\n\nEle será removido das listas e não contará para a média de pontos da unidade.')) {
+            return;
+        }
+
+        const member = Store.getMembers().find(m => m.id === memberId);
+        if (!member) return;
+
+        Loading.show('Inativando membro...');
+        Store.inactivateMember(memberId)
+            .then(() => {
+                Loading.hide();
+                Toast.show('Membro inativado com sucesso', 'success');
+                this.navigate('unit', { unitId: member.unitId });
+            })
+            .catch(err => {
+                Loading.hide();
+                console.error(err);
+                if (err.message && err.message.includes('row')) {
+                    Toast.show('Erro: Membro não encontrado ou já inativado', 'error');
+                } else {
+                    Toast.show('Erro ao inativar membro', 'error');
+                }
+            });
+    },
+
+    async handleUnitChange(memberId, newUnitId) {
+        if (!memberId || !newUnitId) return;
+
+        // Confirm change
+        if (!confirm('Deseja mover este membro manualmente para a nova unidade?\n\nISSO IRÁ IGNORAR A CLASSIFICAÇÃO AUTOMÁTICA.')) {
+            // Revert selection if possible, but complex in pure HTML. 
+            // Ideally we re-render, but for now just let it be or force reload.
+            // Let's force reload the view to revert UI
+            this.renderScoring(memberId);
+            return;
+        }
+
+        Loading.show('Atualizando unidade...');
+        try {
+            // Manual = true
+            await Store.updateMemberUnit(memberId, newUnitId, true);
+            Loading.hide();
+            Toast.show('Unidade atualizada manualmente', 'success');
+            // Reload view to reflect changes (and lock icon)
+            this.renderScoring(memberId);
+        } catch (error) {
+            Loading.hide();
+            console.error(error);
+            Toast.show('Erro ao atualizar unidade', 'error');
         }
     },
 
