@@ -2443,26 +2443,31 @@ const App = {
                     `).join('')}
                 </div>
                 
-                <div class="fixed bottom-6 left-4 right-4 flex gap-3 justify-end">
+                </div>
+                
+                <div class="mt-8 mb-12 space-y-4">
                     <button onclick="App.saveCurrentScore('${memberId}')" 
-                            class="w-14 h-14 rounded-full font-bold text-white 
-                                   bg-blue-600 dark:bg-blue-500 shadow-xl shadow-blue-600/30 
-                                   flex items-center justify-center 
-                                   active:scale-95 transition-all hover:bg-blue-700 dark:hover:bg-blue-400"
+                            class="w-full py-4 rounded-xl font-bold text-white text-lg
+                                   bg-brand-navy shadow-lg shadow-blue-900/40 
+                                   flex items-center justify-center gap-2
+                                   active:scale-95 transition-all hover:bg-slate-700 hover:shadow-xl"
                             title="Salvar Pontuação">
                         <i data-lucide="save" class="w-6 h-6"></i>
+                        SALVAR PONTUAÇÃO
                     </button>
                     
-                    <button onclick="App.inactivateMemberPrompt('${memberId}')" 
-                            class="w-14 h-14 rounded-full font-bold text-white
-                                   bg-slate-700 shadow-xl shadow-slate-900/50 border border-slate-600
-                                   flex items-center justify-center 
-                                   active:scale-95 transition-all 
-                                   hover:bg-red-900/80 hover:border-red-500 hover:text-red-200"
-                            title="Inativar Desbravador">
-                        <i data-lucide="archive" class="w-6 h-6"></i>
-                    </button>
+                    <div class="flex justify-center pt-4 border-t border-slate-800">
+                        <button onclick="App.inactivateMemberPrompt('${memberId}')" 
+                                class="text-sm font-medium text-slate-500 hover:text-red-400 
+                                       transition-colors flex items-center gap-2 py-2 px-4 rounded-lg
+                                       hover:bg-red-900/10"
+                                title="Inativar Desbravador">
+                            <i data-lucide="archive" class="w-4 h-4"></i>
+                            Inativar Usuário
+                        </button>
+                    </div>
                 </div>
+            </div>
             </div>
             
             <style>
