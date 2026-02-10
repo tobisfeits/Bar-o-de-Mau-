@@ -165,6 +165,14 @@ export const RBAC = {
     },
 
     /**
+     * Check if user can manage members (add, edit, delete)
+     * @returns {boolean}
+     */
+    canManageMembers() {
+        return this.isSuperAdmin();
+    },
+
+    /**
      * Filter units based on user role
      * @param {Array} units - All units
      * @returns {Array} Filtered units
