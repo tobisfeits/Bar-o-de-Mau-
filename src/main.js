@@ -3,6 +3,8 @@ import { Logger } from './core/logger.js';
 import { PhotoManager } from './ui/photo-manager.js';
 import { Sanitizer } from './utils/sanitizer.js';
 import { Utils } from './modules/ui-utils.js';
+import { Toast } from './ui/toast.js';
+import { Loading } from './ui/loading.js';
 
 // Expose App globally for inline event handlers (onclick="App.method()")
 window.App = App;
@@ -12,6 +14,8 @@ window.Logger = Logger;
 window.PhotoManager = PhotoManager;
 window.Sanitizer = Sanitizer;
 window.Utils = Utils;
+window.Toast = Toast;
+window.Loading = Loading;
 
 document.addEventListener('DOMContentLoaded', async () => {
     try {

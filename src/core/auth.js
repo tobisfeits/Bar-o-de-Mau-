@@ -146,6 +146,25 @@ export const RBAC = {
     },
 
     /**
+     * Check if user can manage units (create, edit, delete)
+     * @returns {boolean}
+     */
+    canManageUnits() {
+        return this.isSuperAdmin();
+    },
+
+    /**
+     * Check if user can evaluate a specific member
+     * @param {string} unitId - Member's unit ID
+     * @returns {boolean}
+     */
+    canEvaluateMember(unitId) {
+        if (this.isSuperAdmin()) return true;
+        if (this.isConselheiro()) return this.getUserUnitId() === unitId;
+        return false;
+    },
+
+    /**
      * Filter units based on user role
      * @param {Array} units - All units
      * @returns {Array} Filtered units
