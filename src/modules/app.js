@@ -155,29 +155,38 @@ export const App = {
             window.history.pushState({ view, params }, '', `#${view}`);
         }
 
-        // Render View
-        switch (view) {
-            case 'login':
-                this.renderLogin();
-                break;
-            case 'password-change':
-                this.renderPasswordChange();
-                break;
-            case 'dashboard':
-                await this.renderDashboard();
-                break;
-            case 'unit':
-                if (params.unitId) await this.renderUnitDetails(params.unitId);
-                break;
-            case 'scoring':
-                if (params.memberId) await this.renderScoring(params.memberId);
-                break;
-            case 'counselor-evaluation':
-                if (params.counselorId) await this.renderCounselorEvaluation(params.counselorId);
-                break;
-            default:
-                console.warn(`View not found: ${view}`);
-                this.navigate('dashboard');
+        //Render View
+        try {
+            switch (view) {
+                case 'login':
+                    this.renderLogin();
+                    break;
+                case 'password-change':
+                    this.renderPasswordChange();
+                    break;
+                case 'dashboard':
+                    await this.renderDashboard();
+                    break;
+                case 'unit':
+                    if (params.unitId) await this.renderUnitDetails(params.unitId);
+                    break;
+                case 'scoring':
+                    if (params.memberId) await this.renderScoring(params.memberId);
+                    break;
+                case 'counselor-evaluation':
+                    if (params.counselorId) await this.renderCounselorEvaluation(params.counselorId);
+                    break;
+                default:
+                    console.warn(`View not found: ${view}`);
+                    this.navigate('dashboard');
+            }
+        } catch (error) {
+            console.error(`Error navigating to ${view}:`, error);
+            if (window.Toast) {
+                Toast.show(`Erro ao carregar ${view}`, 'error');
+            }
+            // Don't navigate to dashboard here to avoid loops
+            // Just show error and let user try again
         }
 
         // Scroll to top
