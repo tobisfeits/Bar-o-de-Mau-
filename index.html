@@ -37,11 +37,11 @@
 
     <!-- Content Security Policy -->
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; 
-                   script-src 'self' 'unsafe-inline' 'unsafe-eval' cdn.jsdelivr.net unpkg.com cdn.tailwindcss.com cdn.sheetjs.com;
+                   script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://cdn.tailwindcss.com https://cdn.sheetjs.com;
                    style-src 'self' 'unsafe-inline';
                    img-src 'self' data: https:;
                    font-src 'self' data:;
-                   connect-src 'self' *.supabase.co;
+                   connect-src 'self' https://*.supabase.co https://cdn.jsdelivr.net https://unpkg.com https://cdn.sheetjs.com;
                    frame-src 'none';
                    object-src 'none';
                    base-uri 'self';">
@@ -89,27 +89,17 @@
 
     <!-- Custom Styles -->
     <link rel="stylesheet" href="styles.css">
+
+    <!-- Simple PIN Hasher (Web Crypto API - No external dependencies) -->
+    <script type="module" src="src/core/simple-pin-hasher.js"></script>
 </head>
 
 <body class="min-h-screen" style="background-color: var(--bg-primary);">
     <!-- App Container -->
     <div id="app-container"></div>
 
-    <!-- Configuration (must load before app.js) -->
-    <script src="config.js"></script>
-
-    <!-- Error Handling & Logging (must load before app.js) -->
-    <script src="error-boundary.js"></script>
-    <script src="logger.js"></script>
-    <script src="sanitizer.js"></script>
-    <script src="haptic.js"></script>
-    <script src="performance.js"></script>
-
-    <!-- Photo Manager (must load before app.js) -->
-    <script src="photo-manager.js"></script>
-
-    <!-- Main Application Script -->
-    <script src="app.js"></script>
+    <!-- Main Application Module -->
+    <script type="module" src="src/main.js"></script>
 
     <!-- PWA Service Worker Registration -->
     <script>
