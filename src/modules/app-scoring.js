@@ -12,7 +12,7 @@ import { Navigation } from '../core/router.js';
 export const ScoringMethods = {
     async renderScoring(memberId) {
         // Find member
-        const member = Store.getMembers().find(m => m.id === memberId);
+        const member = (await Store.getMembers()).find(m => m.id === memberId);
         if (!member) {
             Toast.show('Membro não encontrado', 'error');
             this.navigate('dashboard');
@@ -28,7 +28,7 @@ export const ScoringMethods = {
 
         const todayKey = Utils.getTodayKey();
         const score = await Store.getMemberScore(memberId, todayKey) || { items: {} };
-        const unit = Store.getUnits().find(u => u.id === member.unitId);
+        const unit = (await Store.getUnits()).find(u => u.id === member.unitId);
 
         // Photo Upload Button HTML
         const photoUploadHtml = PhotoManager.renderUploadButton(member.id, member.photo_url);
@@ -197,7 +197,7 @@ export const ScoringMethods = {
 
     async inactivateMember(memberId) {
         // Use Store directly
-        const member = Store.getMembers().find(m => m.id === memberId);
+        const member = (await Store.getMembers()).find(m => m.id === memberId);
         if (!member) return;
 
         // In app.js it calls Store.deleteMember which calls inactivateMember
