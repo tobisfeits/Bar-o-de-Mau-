@@ -68,8 +68,8 @@ export const UnitMethods = {
 
                             <div class="flex items-center gap-4 mb-4">
                                 <div class="w-16 h-16 rounded-2xl bg-brand-navy border-2 border-brand-gold flex items-center justify-center shadow-lg shadow-brand-navy/50 overflow-hidden">
-                                    ${unit.logo_url ?
-                    `<img src="${unit.logo_url}" alt="${unit.name}" class="w-full h-full object-cover">` :
+                                    ${unit.logo ?
+                    `<img src="${unit.logo}" alt="${unit.name}" class="w-full h-full object-cover">` :
                     `<span class="text-2xl font-black text-brand-gold">${unit.name.substring(0, 2).toUpperCase()}</span>`
                 }
                                 </div>
