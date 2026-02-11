@@ -157,10 +157,11 @@ export const DashboardMethods = {
 
                                 <div class="flex items-center justify-between relative z-10">
                                     <div class="flex items-center gap-4">
-                                        <div class="w-12 h-12 rounded-xl bg-brand-navy border border-slate-700 flex items-center justify-center group-hover:border-brand-gold/50 transition-colors">
-                                            <span class="text-lg font-black text-brand-gold">
-                                                ${unit.name.substring(0, 2).toUpperCase()}
-                                            </span>
+                                        <div class="w-12 h-12 rounded-xl bg-brand-navy border border-slate-700 flex items-center justify-center group-hover:border-brand-gold/50 transition-colors overflow-hidden">
+                                            ${unit.logo_url ?
+                        `<img src="${unit.logo_url}" alt="${unit.name}" class="w-full h-full object-cover">` :
+                        `<span class="text-lg font-black text-brand-gold">${unit.name.substring(0, 2).toUpperCase()}</span>`
+                    }
                                         </div>
                                         <div>
                                             <h3 class="font-bold text-lg text-white group-hover:text-brand-gold transition-colors">

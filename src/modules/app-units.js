@@ -67,10 +67,11 @@ export const UnitMethods = {
                             </button>
 
                             <div class="flex items-center gap-4 mb-4">
-                                <div class="w-16 h-16 rounded-2xl bg-brand-navy border-2 border-brand-gold flex items-center justify-center shadow-lg shadow-brand-navy/50">
-                                    <span class="text-2xl font-black text-brand-gold">
-                                        ${unit.name.substring(0, 2).toUpperCase()}
-                                    </span>
+                                <div class="w-16 h-16 rounded-2xl bg-brand-navy border-2 border-brand-gold flex items-center justify-center shadow-lg shadow-brand-navy/50 overflow-hidden">
+                                    ${unit.logo_url ?
+                    `<img src="${unit.logo_url}" alt="${unit.name}" class="w-full h-full object-cover">` :
+                    `<span class="text-2xl font-black text-brand-gold">${unit.name.substring(0, 2).toUpperCase()}</span>`
+                }
                                 </div>
                                 <div>
                                     <h2 class="text-3xl font-black text-white uppercase tracking-wider leading-none">
@@ -123,17 +124,17 @@ export const UnitMethods = {
                         ` : ''}
 
                         ${members.map(member => {
-                const score = todayScores[member.id];
-                const statusColor = !score ? 'bg-slate-700' :
-                    score.isAbsent ? 'bg-red-500' : 'bg-green-500';
-                const statusText = !score ? 'Pendente' :
-                    score.isAbsent ? 'Ausente' : `${Utils.countTotal(score)} pts`;
+                    const score = todayScores[member.id];
+                    const statusColor = !score ? 'bg-slate-700' :
+                        score.isAbsent ? 'bg-red-500' : 'bg-green-500';
+                    const statusText = !score ? 'Pendente' :
+                        score.isAbsent ? 'Ausente' : `${Utils.countTotal(score)} pts`;
 
-                // Photo logic (using helper if needed, but simple img tag works for now)
-                // We can use PhotoManager.renderPhoto() for better visuals
-                const photoHtml = PhotoManager.renderPhoto(member, 48);
+                    // Photo logic (using helper if needed, but simple img tag works for now)
+                    // We can use PhotoManager.renderPhoto() for better visuals
+                    const photoHtml = PhotoManager.renderPhoto(member, 48);
 
-                return `
+                    return `
                                 <div onclick="App.renderScoring('${member.id}')" 
                                      class="group bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-sm active:scale-[0.98] transition-all hover:bg-slate-800 hover:border-slate-700 cursor-pointer relative overflow-hidden">
                                      
@@ -174,7 +175,7 @@ export const UnitMethods = {
                                     ` : ''}
                                 </div>
                             `;
-            }).join('')}
+                }).join('')}
                     </div>
                 </div>
             `;
