@@ -255,4 +255,42 @@ export const DashboardMethods = {
             this.renderDashboard();
         }, 300);
     },
+
+    initSyncStatus() {
+        const statusEl = document.getElementById('sync-status');
+        if (!statusEl) return;
+
+        const updateUI = (status) => {
+            const { pending, isSyncing, isOnline } = status;
+            const textEl = statusEl.querySelector('.text');
+            const indicatorEl = statusEl.querySelector('.indicator');
+
+            statusEl.classList.remove('hidden');
+
+            if (isSyncing) {
+                statusEl.className = 'mt-2 text-xs font-bold px-2 py-1 rounded w-fit bg-blue-900/50 text-blue-400 border border-blue-800 animate-pulse';
+                textEl.textContent = `Sincronizando (${pending})...`;
+                indicatorEl.textContent = '↻';
+            } else if (pending > 0) {
+                statusEl.className = 'mt-2 text-xs font-bold px-2 py-1 rounded w-fit bg-yellow-900/50 text-yellow-400 border border-yellow-800';
+                textEl.textContent = `Pendentes: ${pending}`;
+                indicatorEl.textContent = '●';
+            } else if (!isOnline) {
+                statusEl.className = 'mt-2 text-xs font-bold px-2 py-1 rounded w-fit bg-red-900/50 text-red-400 border border-red-800';
+                textEl.textContent = 'Offline';
+                indicatorEl.textContent = '●';
+            } else {
+                statusEl.className = 'mt-2 text-xs font-bold px-2 py-1 rounded w-fit bg-green-900/50 text-green-400 border border-green-800';
+                textEl.textContent = 'Online & Sincronizado';
+                indicatorEl.textContent = '●';
+                setTimeout(() => {
+                    if (document.getElementById('sync-status') === statusEl && SyncManager.getPendingCount() === 0 && !SyncManager.isSyncing) {
+                        statusEl.classList.add('hidden');
+                    }
+                }, 3000);
+            }
+        };
+
+        SyncManager.setStatusListener(updateUI);
+    },
 };
