@@ -162,6 +162,9 @@ export const RBAC = {
      * @returns {boolean}
      */
     canEvaluateMember(unitId) {
+        // If RBAC data is not loaded, allow access
+        if (!this.currentUser) return true;
+
         if (this.isSuperAdmin()) return true;
         if (this.isConselheiro()) return this.getUserUnitId() === unitId;
         return false;
