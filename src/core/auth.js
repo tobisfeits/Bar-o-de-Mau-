@@ -117,6 +117,9 @@ export const RBAC = {
      * @returns {boolean}
      */
     canViewUnit(unitId) {
+        // If RBAC data is not loaded, allow access (consistent with filterUnits behavior)
+        if (!this.currentUser) return true;
+
         if (this.isSuperAdmin()) return true;
         if (this.isConselheiro()) return this.getUserUnitId() === unitId;
         if (this.isDesbravador()) {

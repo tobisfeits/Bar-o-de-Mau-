@@ -3,6 +3,7 @@ import { CONFIG } from '../config/constants.js';
 import { Cache } from '../data/cache.js';
 import { Toast } from '../ui/toast.js';
 import { DevStorage } from './dev-storage.js';
+import { SyncManager } from './sync-manager.js';
 
 export const DataAdapter = {
     useSupabase() {
@@ -67,6 +68,7 @@ export const DataAdapter = {
                     .from('members')
                     .select('*')
                     .eq('active', true)
+                    .is('deleted_at', null)
                     .order('name');
 
                 if (error) throw error;
@@ -105,18 +107,30 @@ export const DataAdapter = {
                 is_counselor: member.isCounselor || false,
                 is_manual_unit: member.isManualUnit || false
             };
-            return window.supabaseClient.from('members').upsert(dbMember);
-        } else {
-            const members = DevStorage.get(CONFIG.STORAGE_KEYS.MEMBERS) || [];
-            const index = members.findIndex(m => m.id === member.id);
-            if (index >= 0) {
-                members[index] = member;
-            } else {
-                members.push(member);
+
+            try {
+                const { error } = await window.supabaseClient.from('members').upsert(dbMember);
+                if (error) throw error;
+            } catch (error) {
+                console.error('Erro ao salvar membro (Supabase), salvando na fila offline:', error);
+
+                // Enqueue for offline sync
+                SyncManager.enqueue('SAVE_MEMBER', dbMember);
             }
-            DevStorage.set(CONFIG.STORAGE_KEYS.MEMBERS, members);
-            return Promise.resolve();
         }
+
+        // Always save to DevStorage/Cache
+        const members = DevStorage.get(CONFIG.STORAGE_KEYS.MEMBERS) || [];
+        const index = members.findIndex(m => m.id === member.id);
+        if (index >= 0) {
+            members[index] = member;
+        } else {
+            members.push(member);
+        }
+        DevStorage.set(CONFIG.STORAGE_KEYS.MEMBERS, members);
+
+        Cache.clear();
+        return Promise.resolve();
     },
 
     async inactivateMember(memberId) {
@@ -131,6 +145,58 @@ export const DataAdapter = {
             members = members.filter(m => m.id !== memberId);
             DevStorage.set(CONFIG.STORAGE_KEYS.MEMBERS, members);
         }
+    },
+
+    // Soft delete member (permanent removal with data preservation)
+    async deleteMember(memberId) {
+        if (this.useSupabase()) {
+            try {
+                const { error } = await window.supabaseClient
+                    .from('members')
+                    .update({ deleted_at: new Date().toISOString() })
+                    .eq('id', memberId);
+                if (error) throw error;
+            } catch (error) {
+                console.error('Erro ao deletar membro (Supabase), salvando na fila offline:', error);
+                SyncManager.enqueue('DELETE_MEMBER', { memberId });
+            }
+        }
+
+        // Always update DevStorage/Cache (soft delete logic for local)
+        // For offline/dev, we remove it to keep consistency with "deleted" status or mark as deleted if structure supports
+        // Original logic removed it, keeping that.
+        let members = DevStorage.get(CONFIG.STORAGE_KEYS.MEMBERS) || [];
+        members = members.filter(m => m.id !== memberId);
+        DevStorage.set(CONFIG.STORAGE_KEYS.MEMBERS, members);
+
+        Cache.clear();
+    },
+
+    // Restore soft deleted member
+    async restoreMember(memberId) {
+        if (this.useSupabase()) {
+            const { error } = await window.supabaseClient
+                .from('members')
+                .update({ deleted_at: null })
+                .eq('id', memberId);
+            if (error) throw error;
+        }
+        Cache.clear();
+    },
+
+    // Get deleted members (for admin recovery)
+    async getDeletedMembers() {
+        if (this.useSupabase()) {
+            const { data, error } = await window.supabaseClient
+                .from('members')
+                .select('*')
+                .not('deleted_at', 'is', null)
+                .order('deleted_at', { ascending: false });
+
+            if (error) throw error;
+            return data || [];
+        }
+        return [];
     },
 
     async updateMemberUnit(memberId, unitId, isManual = false) {
@@ -184,11 +250,23 @@ export const DataAdapter = {
     },
 
     // SCORES
-    async getScores() {
+    async getScores(filters = {}) {
         if (this.useSupabase()) {
-            const { data, error } = await window.supabaseClient
+            let query = window.supabaseClient
                 .from('scores')
-                .select('*');
+                .select('*')
+                .is('deleted_at', null);
+
+            // Apply filters if provided
+            if (filters.startDate) {
+                query = query.gte('date', filters.startDate);
+            }
+            if (filters.endDate) {
+                query = query.lte('date', filters.endDate);
+            }
+
+            const { data, error } = await query;
+
             if (error) {
                 console.error('Erro ao buscar pontuações:', error);
                 return {};
@@ -209,32 +287,52 @@ export const DataAdapter = {
             });
             return scoresByDate;
         } else {
+            // For DevStorage, we return everything (it's local and fast)
+            // Or implementing manual filtering if needed, but not critical for offline
             return DevStorage.get(CONFIG.STORAGE_KEYS.SCORES) || {};
         }
     },
 
     async saveScore(memberId, dateKey, scoreData) {
         if (this.useSupabase()) {
-            const { error } = await window.supabaseClient
-                .from('scores')
-                .upsert({
-                    member_id: memberId,
+            try {
+                const { error } = await window.supabaseClient
+                    .from('scores')
+                    .upsert({
+                        member_id: memberId,
+                        date: dateKey,
+                        is_absent: scoreData.isAbsent || false,
+                        items: scoreData.items,
+                        created_by: scoreData.createdBy,
+                        created_by_id: scoreData.createdById,
+                        created_at: scoreData.createdAt
+                    }, {
+                        onConflict: 'member_id,date'
+                    });
+                if (error) throw error;
+            } catch (error) {
+                console.error('Erro ao salvar pontuação (Supabase), salvando na fila offline:', error);
+
+                // Enqueue for offline sync
+                const payload = {
+                    memberId,
                     date: dateKey,
-                    is_absent: scoreData.isAbsent || false,
-                    items: scoreData.items,
-                    created_by: scoreData.createdBy,
-                    created_by_id: scoreData.createdById,
-                    created_at: scoreData.createdAt
-                }, {
-                    onConflict: 'member_id,date'
-                });
-            if (error) console.error('Erro ao salvar pontuação:', error);
-        } else {
-            const scores = DevStorage.get(CONFIG.STORAGE_KEYS.SCORES) || {};
-            if (!scores[dateKey]) scores[dateKey] = {};
-            scores[dateKey][memberId] = scoreData;
-            DevStorage.set(CONFIG.STORAGE_KEYS.SCORES, scores);
+                    data: scoreData
+                };
+
+                // Dynamically import SyncManager to avoid circular dependency issues if any
+                // But we are in module system, so static import at top is better.
+                // Assuming SyncManager is imported at top.
+                SyncManager.enqueue('SAVE_SCORE', payload);
+            }
         }
+
+        // Always save to DevStorage/Cache as fallback/optimistic UI
+        const scores = DevStorage.get(CONFIG.STORAGE_KEYS.SCORES) || {};
+        if (!scores[dateKey]) scores[dateKey] = {};
+        scores[dateKey][memberId] = scoreData;
+        DevStorage.set(CONFIG.STORAGE_KEYS.SCORES, scores);
+
         Cache.clear();
     },
 
@@ -243,7 +341,8 @@ export const DataAdapter = {
         if (this.useSupabase()) {
             const { data, error } = await window.supabaseClient
                 .from('counselor_scores')
-                .select('*');
+                .select('*')
+                .is('deleted_at', null);
             if (error) {
                 console.error('Erro ao buscar avaliações:', error);
                 return {};
@@ -269,24 +368,37 @@ export const DataAdapter = {
 
     async saveCounselorScore(counselorId, dateKey, scoreData) {
         if (this.useSupabase()) {
-            const { error } = await window.supabaseClient
-                .from('counselor_scores')
-                .upsert({
-                    counselor_id: counselorId,
+            try {
+                const { error } = await window.supabaseClient
+                    .from('counselor_scores')
+                    .upsert({
+                        counselor_id: counselorId,
+                        date: dateKey,
+                        items: scoreData.items,
+                        created_by: scoreData.createdBy,
+                        created_by_id: scoreData.createdById,
+                        created_at: scoreData.createdAt
+                    }, {
+                        onConflict: 'counselor_id,date'
+                    });
+                if (error) throw error;
+            } catch (error) {
+                console.error('Erro ao salvar avaliação de conselheiro (Supabase), salvando na fila offline:', error);
+
+                // Enqueue for offline sync
+                const payload = {
+                    counselorId,
                     date: dateKey,
-                    items: scoreData.items,
-                    created_by: scoreData.createdBy,
-                    created_by_id: scoreData.createdById,
-                    created_at: scoreData.createdAt
-                }, {
-                    onConflict: 'counselor_id,date'
-                });
-            if (error) console.error('Erro ao salvar avaliação:', error);
-        } else {
-            const scores = DevStorage.get(CONFIG.STORAGE_KEYS.COUNSELOR_SCORES) || {};
-            if (!scores[dateKey]) scores[dateKey] = {};
-            scores[dateKey][counselorId] = scoreData;
-            DevStorage.set(CONFIG.STORAGE_KEYS.COUNSELOR_SCORES, scores);
+                    data: scoreData
+                };
+                SyncManager.enqueue('SAVE_COUNSELOR_SCORE', payload);
+            }
         }
+
+        // Always save to DevStorage
+        const scores = DevStorage.get(CONFIG.STORAGE_KEYS.COUNSELOR_SCORES) || {};
+        if (!scores[dateKey]) scores[dateKey] = {};
+        scores[dateKey][counselorId] = scoreData;
+        DevStorage.set(CONFIG.STORAGE_KEYS.COUNSELOR_SCORES, scores);
     }
 };

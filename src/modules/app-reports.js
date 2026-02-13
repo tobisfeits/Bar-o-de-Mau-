@@ -101,6 +101,11 @@ export const ReportMethods = {
         const defaultStart = startDate || thirtyDaysAgoKey;
         const defaultEnd = endDate || todayKey;
 
+        // Ensure data for the period is loaded
+        Loading.show('Carregando dados do período...');
+        await Store.fetchScoresRange(defaultStart, defaultEnd);
+        Loading.hide();
+
         const units = await Store.getUnits();
         const members = await Store.getMembers();
         const allScores = await Store.getScores();
@@ -136,12 +141,9 @@ export const ReportMethods = {
         const memberStats = members.map(member => {
             const { totalPoints, daysEvaluated, daysAbsent } = calculatePeriodScores(member.id);
             const evaluated = daysEvaluated > 0;
-            // Considering 190 points MAX per day? 
-            // Utils.countTotal depends on CONFIG.SCORE_ITEMS.
-            // Original code had 190 hardcoded. 
-            // I should use Utils.getMaxPoints() if it exists or sum CONFIG points.
-            // But preserving original logic is safer.
-            const percent = evaluated ? Math.round((totalPoints / (190 * daysEvaluated)) * 100) : 0;
+            // Updated total points from 190 to 180 (removed Social Media)
+            // Ideally should use CONFIG.TOTAL_POINTS but keeping style consistent for now
+            const percent = evaluated ? Math.round((totalPoints / (180 * daysEvaluated)) * 100) : 0;
 
             return {
                 ...member,

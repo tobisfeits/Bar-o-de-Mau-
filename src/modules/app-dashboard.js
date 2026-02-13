@@ -4,6 +4,7 @@ import { DataAdapter } from '../data/repository.js';
 import { Utils } from './ui-utils.js';
 import { Sanitizer } from '../utils/sanitizer.js';
 import { Loading } from '../ui/loading.js';
+import { SyncManager } from '../data/sync-manager.js';
 
 export const DashboardMethods = {
     async checkBirthdays() {
@@ -92,13 +93,25 @@ export const DashboardMethods = {
                             <p class="text-slate-400 text-sm font-medium">
                                 ${Utils.formatDate(todayKey)}
                             </p>
+                            <!-- Sync Status Indicator -->
+                            <div id="sync-status" class="mt-2 text-xs font-bold px-2 py-1 rounded w-fit hidden">
+                                <span class="indicator mr-1">●</span> <span class="text">Online</span>
+                            </div>
                         </div>
                         
                         ${RBAC.canManageUnits() ? `
-                            <button onclick="App.addUnitPrompt()" 
-                                    class="bg-brand-gold text-slate-900 p-2 rounded-xl hover:bg-yellow-500 transition-colors shadow-lg shadow-brand-gold/20">
-                                <i data-lucide="plus" class="w-6 h-6"></i>
-                            </button>
+                            <div class="flex gap-3">
+                                <a href="admin-deleted-members.html" 
+                                   class="bg-slate-800 text-red-400 p-2 rounded-xl hover:bg-slate-700 transition-colors shadow-lg border border-slate-700 flex items-center justify-center"
+                                   title="Lixeira de Membros">
+                                    <i data-lucide="trash-2" class="w-6 h-6"></i>
+                                </a>
+                                <button onclick="App.addUnitPrompt()" 
+                                        class="bg-brand-gold text-slate-900 p-2 rounded-xl hover:bg-yellow-500 transition-colors shadow-lg shadow-brand-gold/20"
+                                        title="Nova Unidade">
+                                    <i data-lucide="plus" class="w-6 h-6"></i>
+                                </button>
+                            </div>
                         ` : ''}
                     </div>
 
@@ -204,6 +217,10 @@ export const DashboardMethods = {
             `;
 
             this.mountPoint.innerHTML = html;
+
+            // Initialize Sync UI Listener
+            this.initSyncStatus();
+
             if (typeof lucide !== 'undefined') lucide.createIcons();
             this.toggleNavigation(true);
 

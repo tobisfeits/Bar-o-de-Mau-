@@ -15,8 +15,7 @@ export const CONFIG = {
         { id: 'classwork', name: 'Tarefas de Classe', points: 30 },
         { id: 'teamspirit', name: 'Espírito de Equipe', points: 10 },
         { id: 'biblicalyear', name: 'Ano Bíblico', points: 20 },
-        { id: 'sabbathschool', name: 'Escola Sabatina', points: 20 },
-        { id: 'socialmedia', name: 'Redes Sociais', points: 10 }
+        { id: 'sabbathschool', name: 'Escola Sabatina', points: 20 }
     ],
     COUNSELOR_ITEMS: [
         { id: 'uniform', name: 'Uniforme Completo', points: 20 },
@@ -24,7 +23,8 @@ export const CONFIG = {
         { id: 'report', name: 'Relatório Entregue', points: 20 },
         { id: 'presence', name: 'Presença', points: 10 },
         { id: 'materials', name: 'Material Organizado', points: 15 },
-        { id: 'planning', name: 'Planejamento', points: 15 }
+        { id: 'planning', name: 'Planejamento', points: 15 },
+        { id: 'socialmedia', name: 'Redes Sociais', points: 10 }
     ],
     STORAGE_KEYS: {
         UNITS: 'cd_units',
@@ -34,6 +34,6 @@ export const CONFIG = {
         CURRENT_USER: 'cd_current_user',
         USERS: 'cd_users'
     },
-    TOTAL_POINTS: 140,
-    TOTAL_COUNSELOR_POINTS: 100
+    TOTAL_POINTS: 180,
+    TOTAL_COUNSELOR_POINTS: 110
 };

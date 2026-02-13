@@ -13,6 +13,7 @@ import { CounselorMethods } from './app-counselor.js';
 import { VersionChecker } from './version-checker.js';
 import { ErrorBoundary } from '../core/error-boundary.js';
 import { DevStorage } from '../data/dev-storage.js';
+import { SyncManager } from '../data/sync-manager.js';
 
 export const App = {
     // --- State Properties ---
@@ -44,6 +45,9 @@ export const App = {
         Loading.show('Inicializando dados...');
         await Store.init();
         Loading.hide();
+
+        // Initialize SyncManager (Offline Support)
+        SyncManager.init();
 
         // Initialize Settings
         this.mountPoint = document.getElementById('app-container');

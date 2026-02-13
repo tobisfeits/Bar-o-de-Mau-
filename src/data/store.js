@@ -49,12 +49,42 @@ export const Store = {
         return members.filter(m => m.unitId === unitId);
     },
 
+    // Local Cache for Scores to allow partial updates
+    scoresCache: {},
+
     async getScores() {
-        return await DataAdapter.getScores();
+        // Return local cache if populated, otherwise fetch default range (current month)
+        if (Object.keys(this.scoresCache).length === 0) {
+            await this.fetchCurrentMonthScores();
+        }
+        return this.scoresCache;
+    },
+
+    async fetchCurrentMonthScores() {
+        const today = new Date();
+        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+        const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
+        await this.fetchScoresRange(firstDay, lastDay);
+    },
+
+    async fetchScoresRange(startDate, endDate) {
+        const newScores = await DataAdapter.getScores({ startDate, endDate });
+
+        // Merge with cache
+        Object.keys(newScores).forEach(date => {
+            this.scoresCache[date] = newScores[date];
+        });
+
+        return this.scoresCache;
     },
 
     async getMemberScore(memberId, dateKey) {
-        const scores = await this.getScores();
+        // Ensure we have data for this date
+        if (!this.scoresCache[dateKey]) {
+            await this.fetchScoresRange(dateKey, dateKey);
+        }
+
+        const scores = this.scoresCache;
         if (!scores[dateKey]) return this.getDefaultScore();
         return scores[dateKey][memberId] || this.getDefaultScore();
     },
@@ -82,6 +112,18 @@ export const Store = {
         };
 
         await DataAdapter.saveScore(memberId, dateKey, fullScoreData);
+
+        // Update local cache immediately
+        if (!this.scoresCache[dateKey]) {
+            this.scoresCache[dateKey] = {};
+        }
+        this.scoresCache[dateKey][memberId] = {
+            isAbsent: scoreData.isAbsent,
+            items: scoreData.items,
+            createdBy: fullScoreData.createdBy,
+            createdById: fullScoreData.createdById,
+            createdAt: fullScoreData.createdAt
+        };
     },
 
     getCurrentUser() {
