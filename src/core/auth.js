@@ -135,6 +135,7 @@ export const RBAC = {
      * @returns {boolean}
      */
     canEditMemberScore(member) {
+        if (!this.currentUser) return true;
         if (this.isSuperAdmin()) return true;
         if (this.isConselheiro()) return member.unitId === this.getUserUnitId();
         return false; // Desbravador cannot edit scores
