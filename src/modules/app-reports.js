@@ -143,7 +143,7 @@ export const ReportMethods = {
             const evaluated = daysEvaluated > 0;
             // Updated total points from 190 to 180 (removed Social Media)
             // Ideally should use CONFIG.TOTAL_POINTS but keeping style consistent for now
-            const percent = evaluated ? Math.round((totalPoints / (180 * daysEvaluated)) * 100) : 0;
+            const percent = evaluated ? Math.round((totalPoints / (184 * daysEvaluated)) * 100) : 0;
 
             return {
                 ...member,

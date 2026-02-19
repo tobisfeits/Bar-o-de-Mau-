@@ -5,9 +5,18 @@ export const Utils = {
     countTotal(scoreRecord) {
         if (!scoreRecord || scoreRecord.isAbsent) return 0;
 
-        return CONFIG.SCORE_ITEMS.reduce((sum, item) => {
+        let total = CONFIG.SCORE_ITEMS.reduce((sum, item) => {
             return sum + (scoreRecord.items[item.id] ? item.points : 0);
         }, 0);
+
+        // Add prayer event points
+        const prayerLevel = scoreRecord.items && scoreRecord.items[CONFIG.PRAYER_EVENT.id];
+        if (prayerLevel) {
+            const level = CONFIG.PRAYER_EVENT.levels.find(l => l.id === prayerLevel);
+            if (level) total += level.points;
+        }
+
+        return total;
     },
 
     getPercentage(total) {

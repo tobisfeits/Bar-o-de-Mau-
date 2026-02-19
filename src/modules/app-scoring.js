@@ -108,6 +108,51 @@ export const ScoringMethods = {
                                 </div>
                             </div>
                         `).join('')}
+
+                        <!-- 10 Dias de Oração -->
+                        <div class="mt-6 bg-gradient-to-br from-indigo-900/40 to-purple-900/30 rounded-xl border border-indigo-500/30 overflow-hidden">
+                            <div class="p-4 border-b border-indigo-500/20 flex items-center gap-3">
+                                <div class="w-9 h-9 rounded-lg bg-indigo-500/20 flex items-center justify-center">
+                                    <span class="text-lg">🙏</span>
+                                </div>
+                                <div>
+                                    <h3 class="font-black text-white text-sm uppercase tracking-wider">${CONFIG.PRAYER_EVENT.name}</h3>
+                                    <p class="text-xs text-indigo-300/70">Selecione o nível de participação</p>
+                                </div>
+                            </div>
+                            <div class="p-3 space-y-2" id="prayer-levels-container">
+                                ${CONFIG.PRAYER_EVENT.levels.map(level => {
+                    const isSelected = score.items && score.items[CONFIG.PRAYER_EVENT.id] === level.id;
+                    const colorMap = {
+                        green: { bg: 'bg-green-500/20', border: 'border-green-500', text: 'text-green-400', activeBg: 'bg-green-500' },
+                        yellow: { bg: 'bg-yellow-500/20', border: 'border-yellow-500', text: 'text-yellow-400', activeBg: 'bg-yellow-500' },
+                        orange: { bg: 'bg-orange-500/20', border: 'border-orange-500', text: 'text-orange-400', activeBg: 'bg-orange-500' },
+                        red: { bg: 'bg-red-500/20', border: 'border-red-500', text: 'text-red-400', activeBg: 'bg-red-500' }
+                    };
+                    const c = colorMap[level.color];
+                    return `
+                                        <div onclick="App.selectPrayerLevel('${level.id}')"
+                                             id="prayer-${level.id}"
+                                             class="flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer select-none active:scale-[0.98] transition-all
+                                                    ${isSelected ? c.bg + ' ' + c.border : 'bg-slate-900/50 border-slate-700/50 hover:border-slate-600'}">
+                                            <div class="flex items-center gap-3">
+                                                <span class="text-base">${level.emoji}</span>
+                                                <span class="font-bold text-sm ${isSelected ? c.text : 'text-slate-300'}">${level.name}</span>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <span class="text-xs font-black px-2 py-0.5 rounded ${isSelected ? c.bg + ' ' + c.text : 'bg-slate-800 text-slate-500'}">
+                                                    +${level.points} pts
+                                                </span>
+                                                <div class="w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all
+                                                            ${isSelected ? c.activeBg + ' ' + c.border : 'border-slate-600'}">
+                                                    ${isSelected ? '<div class="w-2 h-2 rounded-full bg-white"></div>' : ''}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    `;
+                }).join('')}
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -152,6 +197,43 @@ export const ScoringMethods = {
         }
     },
 
+    selectPrayerLevel(levelId) {
+        if (Haptic) Haptic.selection();
+
+        const colorMap = {
+            very_satisfactory: { bg: 'bg-green-500/20', border: 'border-green-500', text: 'text-green-400', activeBg: 'bg-green-500' },
+            satisfactory: { bg: 'bg-yellow-500/20', border: 'border-yellow-500', text: 'text-yellow-400', activeBg: 'bg-yellow-500' },
+            not_satisfactory: { bg: 'bg-orange-500/20', border: 'border-orange-500', text: 'text-orange-400', activeBg: 'bg-orange-500' },
+            absent: { bg: 'bg-red-500/20', border: 'border-red-500', text: 'text-red-400', activeBg: 'bg-red-500' }
+        };
+
+        // Deselect all
+        CONFIG.PRAYER_EVENT.levels.forEach(level => {
+            const el = document.getElementById(`prayer-${level.id}`);
+            if (!el) return;
+            const c = colorMap[level.id];
+            el.className = `flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer select-none active:scale-[0.98] transition-all bg-slate-900/50 border-slate-700/50 hover:border-slate-600`;
+            el.querySelector('.font-bold').className = 'font-bold text-sm text-slate-300';
+            const badge = el.querySelector('.text-xs.font-black');
+            badge.className = 'text-xs font-black px-2 py-0.5 rounded bg-slate-800 text-slate-500';
+            const radio = el.querySelector('.w-5');
+            radio.className = 'w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all border-slate-600';
+            radio.innerHTML = '';
+        });
+
+        // Select clicked
+        const el = document.getElementById(`prayer-${levelId}`);
+        if (!el) return;
+        const c = colorMap[levelId];
+        el.className = `flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer select-none active:scale-[0.98] transition-all ${c.bg} ${c.border}`;
+        el.querySelector('.font-bold').className = `font-bold text-sm ${c.text}`;
+        const badge = el.querySelector('.text-xs.font-black');
+        badge.className = `text-xs font-black px-2 py-0.5 rounded ${c.bg} ${c.text}`;
+        const radio = el.querySelector('.w-5');
+        radio.className = `w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${c.activeBg} ${c.border}`;
+        radio.innerHTML = '<div class="w-2 h-2 rounded-full bg-white"></div>';
+    },
+
     toggleAbsence(memberId) {
         const toggle = document.getElementById('toggle-absent');
         const container = document.getElementById('score-items-container');
@@ -172,6 +254,20 @@ export const ScoringMethods = {
                 const checkEl = document.getElementById(`check-${item.id}`);
                 items[item.id] = checkEl && checkEl.classList.contains('bg-brand-gold');
             });
+
+            // Save prayer level
+            const selectedPrayer = CONFIG.PRAYER_EVENT.levels.find(level => {
+                const el = document.getElementById(`prayer-${level.id}`);
+                return el && el.classList.contains({
+                    green: 'border-green-500',
+                    yellow: 'border-yellow-500',
+                    orange: 'border-orange-500',
+                    red: 'border-red-500'
+                }[level.color]);
+            });
+            if (selectedPrayer) {
+                items[CONFIG.PRAYER_EVENT.id] = selectedPrayer.id;
+            }
         }
 
         const scoreData = {

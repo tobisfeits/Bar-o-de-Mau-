@@ -26,6 +26,16 @@ export const CONFIG = {
         { id: 'planning', name: 'Planejamento', points: 15 },
         { id: 'socialmedia', name: 'Redes Sociais', points: 10 }
     ],
+    PRAYER_EVENT: {
+        id: 'prayer_10days',
+        name: '10 Dias de Oração',
+        levels: [
+            { id: 'very_satisfactory', name: 'Muito Satisfatório', points: 4, color: 'green', emoji: '🟢' },
+            { id: 'satisfactory', name: 'Satisfatório', points: 2, color: 'yellow', emoji: '🟡' },
+            { id: 'not_satisfactory', name: 'Não Satisfatório', points: 1, color: 'orange', emoji: '🟠' },
+            { id: 'absent', name: 'Ausente', points: 0, color: 'red', emoji: '🔴' }
+        ]
+    },
     STORAGE_KEYS: {
         UNITS: 'cd_units',
         MEMBERS: 'cd_members',
@@ -34,6 +44,6 @@ export const CONFIG = {
         CURRENT_USER: 'cd_current_user',
         USERS: 'cd_users'
     },
-    TOTAL_POINTS: 180,
+    TOTAL_POINTS: 184,
     TOTAL_COUNSELOR_POINTS: 110
 };
