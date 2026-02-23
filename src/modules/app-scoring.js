@@ -58,9 +58,11 @@ export const ScoringMethods = {
                     </h2>
                     
                     <!-- Photo Upload Control -->
+                    ${RBAC.canUploadPhotos() ? `
                     <div class="mt-4 flex justify-center">
                         ${photoUploadHtml}
                     </div>
+                    ` : ''}
                 </div>
 
                 <!-- Scoring Form -->

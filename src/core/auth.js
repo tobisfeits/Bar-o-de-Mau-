@@ -8,7 +8,8 @@ export const RBAC = {
     ROLES: {
         SUPER_ADMIN: 'super_admin',
         CONSELHEIRO: 'conselheiro',
-        DESBRAVADOR: 'desbravador'
+        DESBRAVADOR: 'desbravador',
+        AUXILIAR: 'auxiliar'
     },
 
     /**
@@ -104,11 +105,19 @@ export const RBAC = {
     },
 
     /**
+     * Check if user is Auxiliar de Pontuação
+     * @returns {boolean}
+     */
+    isAuxiliar() {
+        return this.getUserRole() === this.ROLES.AUXILIAR;
+    },
+
+    /**
      * Check if user can view all units
      * @returns {boolean}
      */
     canViewAllUnits() {
-        return this.isSuperAdmin();
+        return this.isSuperAdmin() || this.isAuxiliar();
     },
 
     /**
@@ -120,7 +129,7 @@ export const RBAC = {
         // If RBAC data is not loaded, allow access (consistent with filterUnits behavior)
         if (!this.currentUser) return true;
 
-        if (this.isSuperAdmin()) return true;
+        if (this.isSuperAdmin() || this.isAuxiliar()) return true;
         if (this.isConselheiro()) return this.getUserUnitId() === unitId;
         if (this.isDesbravador()) {
             // Desbravador can view their own unit (will be checked via member data)
@@ -136,7 +145,7 @@ export const RBAC = {
      */
     canEditMemberScore(member) {
         if (!this.currentUser) return true;
-        if (this.isSuperAdmin()) return true;
+        if (this.isSuperAdmin() || this.isAuxiliar()) return true;
         if (this.isConselheiro()) return member.unitId === this.getUserUnitId();
         return false; // Desbravador cannot edit scores
     },
@@ -166,7 +175,7 @@ export const RBAC = {
         // If RBAC data is not loaded, allow access
         if (!this.currentUser) return true;
 
-        if (this.isSuperAdmin()) return true;
+        if (this.isSuperAdmin() || this.isAuxiliar()) return true;
         if (this.isConselheiro()) return this.getUserUnitId() === unitId;
         return false;
     },
@@ -185,7 +194,7 @@ export const RBAC = {
      * @returns {Array} Filtered units
      */
     filterUnits(units) {
-        if (this.isSuperAdmin()) return units;
+        if (this.isSuperAdmin() || this.isAuxiliar()) return units;
 
         if (this.isConselheiro()) {
             const userUnitId = this.getUserUnitId();
@@ -221,13 +230,41 @@ export const RBAC = {
      * Get user display info for UI
      * @returns {Object}
      */
+    /**
+     * Check if user can view reports
+     * @returns {boolean}
+     */
+    canViewReports() {
+        if (!this.currentUser) return true;
+        return !this.isAuxiliar();
+    },
+
+    /**
+     * Check if user can view counselor ranking
+     * @returns {boolean}
+     */
+    canViewRanking() {
+        if (!this.currentUser) return true;
+        return !this.isAuxiliar();
+    },
+
+    /**
+     * Check if user can upload photos
+     * @returns {boolean}
+     */
+    canUploadPhotos() {
+        if (!this.currentUser) return true;
+        return !this.isAuxiliar();
+    },
+
     getUserDisplayInfo() {
         if (!this.currentUser) return null;
 
         const roleLabels = {
             [this.ROLES.SUPER_ADMIN]: 'Administrador',
             [this.ROLES.CONSELHEIRO]: 'Conselheiro',
-            [this.ROLES.DESBRAVADOR]: 'Desbravador'
+            [this.ROLES.DESBRAVADOR]: 'Desbravador',
+            [this.ROLES.AUXILIAR]: 'Auxiliar de Pontuação'
         };
 
         return {

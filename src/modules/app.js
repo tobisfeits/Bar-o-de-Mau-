@@ -1,4 +1,5 @@
 import { Store } from '../data/store.js';
+import { RBAC } from '../core/auth.js';
 import { SUPABASE_CONFIG } from '../config/env.js';
 import { Navigation } from '../core/router.js';
 import { Toast } from '../ui/toast.js';
@@ -107,15 +108,19 @@ export const App = {
                         <span class="text-[10px] uppercase font-bold">Início</span>
                     </button>
                     
+                    ${RBAC.canViewRanking() ? `
                     <button onclick="App.renderCounselorRanking()" class="flex flex-col items-center p-2 text-slate-400 hover:text-brand-gold transition-colors">
                         <i data-lucide="trophy" class="w-6 h-6 mb-1"></i>
                         <span class="text-[10px] uppercase font-bold">Ranking</span>
                     </button>
+                    ` : ''}
                     
+                    ${RBAC.canViewReports() ? `
                     <button onclick="App.renderReport()" id="btn-report" class="flex flex-col items-center p-2 text-slate-400 hover:text-brand-gold transition-colors">
                         <i data-lucide="bar-chart-2" class="w-6 h-6 mb-1"></i>
                         <span class="text-[10px] uppercase font-bold">Relatório</span>
                     </button>
+                    ` : ''}
                     
                     <button onclick="App.logout()" class="flex flex-col items-center p-2 text-slate-400 hover:text-red-500 transition-colors">
                         <i data-lucide="log-out" class="w-6 h-6 mb-1"></i>
