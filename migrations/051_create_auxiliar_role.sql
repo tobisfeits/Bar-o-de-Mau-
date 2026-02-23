@@ -7,7 +7,16 @@
 --   They cannot: view reports, ranking, upload photos, manage members.
 -- ============================================================
 
--- Insert new auxiliar users
+-- ============================================================
+-- STEP 1: Update CHECK constraint to allow 'auxiliar' role
+-- ============================================================
+ALTER TABLE app_users DROP CONSTRAINT IF EXISTS app_users_role_check;
+ALTER TABLE app_users ADD CONSTRAINT app_users_role_check 
+    CHECK (role IN ('super_admin', 'conselheiro', 'desbravador', 'auxiliar'));
+
+-- ============================================================
+-- STEP 2: Insert new auxiliar users
+-- ============================================================
 -- PIN format: first 3 letters of name + 2026
 -- All users will be prompted to change password on first login
 INSERT INTO app_users (id, name, pin, role, must_change_password)
