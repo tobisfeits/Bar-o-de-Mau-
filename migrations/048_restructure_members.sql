@@ -15,8 +15,6 @@
 DROP PROCEDURE IF EXISTS update_member_units();
 DROP FUNCTION IF EXISTS classify_member_unit(DATE, VARCHAR, VARCHAR);
 
-RAISE NOTICE '✅ Dropped classify_member_unit() and update_member_units()';
-
 -- ============================================================
 -- STEP 2: Soft-delete members NOT in the official list
 -- Then upsert all 55 official members
