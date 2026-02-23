@@ -200,19 +200,6 @@ export const DashboardMethods = {
                         </div>
                     ` : ''}
 
-                    <!-- Unit Classification Button (Admin Only) -->
-                    ${RBAC.isSuperAdmin() ? `
-                        <div class="mt-8 border-t border-slate-800 pt-6">
-                            <button onclick="App.runUnitClassification()" 
-                                    class="w-full py-3 bg-slate-800 text-slate-300 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-slate-700 hover:text-white transition-colors flex items-center justify-center gap-2">
-                                <i data-lucide="refresh-cw" class="w-4 h-4"></i>
-                                Executar Classificação Automática
-                            </button>
-                            <p class="text-center text-[10px] text-slate-500 mt-2">
-                                Atualiza unidades baseado em idade/sexo
-                            </p>
-                        </div>
-                    ` : ''}
                 </div>
             `;
 
