@@ -182,6 +182,40 @@ export const PhotoManager = {
         }
     },
 
+    findBestMemberMatch(filename, members) {
+        if (!filename || !members) return null;
+
+        // Clean filename: remove extension, numbers, special chars
+        const cleanName = filename
+            .split('.')[0]
+            .toLowerCase()
+            .replace(/[0-9\-_]/g, ' ')
+            .trim();
+
+        if (!cleanName) return null;
+
+        // Try exact match with first or last name
+        const parts = cleanName.split(' ').filter(p => p.length > 1);
+
+        for (const member of members) {
+            const memberName = member.name.toLowerCase();
+
+            // Check if full name contains the clean filename
+            if (memberName.includes(cleanName) || cleanName.includes(memberName)) {
+                return member.id;
+            }
+
+            // Check if parts match
+            for (const part of parts) {
+                if (memberName.includes(part)) {
+                    return member.id;
+                }
+            }
+        }
+
+        return null;
+    },
+
     confirmDelete(memberId, photoUrl) {
         if (confirm('Tem certeza que deseja remover esta foto?')) {
             this.deletePhoto(memberId, photoUrl).then(() => {

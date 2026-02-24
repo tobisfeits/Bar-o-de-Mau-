@@ -10,7 +10,8 @@ import { DashboardMethods } from './app-dashboard.js';
 import { UnitMethods } from './app-units.js';
 import { ScoringMethods } from './app-scoring.js';
 import { ReportMethods } from './app-reports.js';
-import { CounselorMethods } from './app-counselor.js';
+import { ActionMethods } from './app-actions.js'; // This was previously merged, checking if exists
+import { PhotoMethods } from './app-photos.js';
 import { VersionChecker } from './version-checker.js';
 import { ErrorBoundary } from '../core/error-boundary.js';
 import { DevStorage } from '../data/dev-storage.js';
@@ -22,6 +23,7 @@ export const App = {
     currentView: 'login',
     isAuthenticated: false,
     activeFilters: { query: '' },
+    currentDate: null,
     searchTimeout: null,
 
     // --- Merge Sub-Modules ---
@@ -31,6 +33,7 @@ export const App = {
     ...ScoringMethods,
     ...ReportMethods,
     ...CounselorMethods,
+    ...PhotoMethods,
 
     // --- Core Methods ---
     async init() {
@@ -45,6 +48,11 @@ export const App = {
         // Initialize Store
         Loading.show('Inicializando dados...');
         await Store.init();
+
+        // Use Utils to get initial date
+        const { Utils } = await import('./ui-utils.js');
+        this.currentDate = Utils.getTodayKey();
+
         Loading.hide();
 
         // Initialize SyncManager (Offline Support)
@@ -107,6 +115,13 @@ export const App = {
                         <i data-lucide="home" class="w-6 h-6 mb-1"></i>
                         <span class="text-[10px] uppercase font-bold">Início</span>
                     </button>
+                    
+                    ${RBAC.isSuperAdmin() ? `
+                    <button onclick="App.navigate('photo-management')" class="flex flex-col items-center p-2 text-slate-400 hover:text-brand-gold transition-colors">
+                        <i data-lucide="camera" class="w-6 h-6 mb-1"></i>
+                        <span class="text-[10px] uppercase font-bold">Fotos</span>
+                    </button>
+                    ` : ''}
                     
                     ${RBAC.canViewRanking() ? `
                     <button onclick="App.renderCounselorRanking()" class="flex flex-col items-center p-2 text-slate-400 hover:text-brand-gold transition-colors">
@@ -185,6 +200,9 @@ export const App = {
                 case 'counselor-evaluation':
                     if (params.counselorId) await this.renderCounselorEvaluation(params.counselorId);
                     break;
+                case 'photo-management':
+                    await this.renderPhotoManagement();
+                    break;
                 default:
                     console.warn(`View not found: ${view}`);
                     this.navigate('dashboard');
@@ -209,5 +227,12 @@ export const App = {
         } else {
             this.navigate('dashboard');
         }
+    },
+
+    changeSessionDate(newDate) {
+        if (!newDate) return;
+        this.currentDate = newDate;
+        console.log(`📅 Date session changed to: ${this.currentDate}`);
+        this.renderDashboard();
     }
 };
