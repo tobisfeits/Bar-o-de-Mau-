@@ -10,7 +10,7 @@ import { DashboardMethods } from './app-dashboard.js';
 import { UnitMethods } from './app-units.js';
 import { ScoringMethods } from './app-scoring.js';
 import { ReportMethods } from './app-reports.js';
-import { ActionMethods } from './app-actions.js'; // This was previously merged, checking if exists
+import { CounselorMethods } from './app-counselor.js';
 import { PhotoMethods } from './app-photos.js';
 import { VersionChecker } from './version-checker.js';
 import { ErrorBoundary } from '../core/error-boundary.js';
