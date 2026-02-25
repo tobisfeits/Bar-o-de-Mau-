@@ -26,9 +26,12 @@ export const ScoringMethods = {
             return;
         }
 
-        const todayKey = Utils.getTodayKey();
-        const score = await Store.getMemberScore(memberId, todayKey) || { items: {} };
+        // Use App.currentDate if set by admin, otherwise today
+        const dateKey = this.scoringDate || this.currentDate || Utils.getTodayKey();
+        this.scoringDate = dateKey; // Store for save
+        const score = await Store.getMemberScore(memberId, dateKey) || { items: {} };
         const unit = (await Store.getUnits()).find(u => u.id === member.unitId);
+        const formattedDate = Utils.formatDate(dateKey);
 
         // Photo Upload Button HTML
         const photoUploadHtml = PhotoManager.renderUploadButton(member.id, member.photo_url);
@@ -45,6 +48,18 @@ export const ScoringMethods = {
                         </button>
                         <span class="text-brand-gold font-bold text-sm bg-brand-gold/10 px-3 py-1 rounded-full border border-brand-gold/20">
                             ${unit ? unit.name : ''}
+                        </span>
+                    </div>
+                    <!-- Date Picker -->
+                    <div class="mt-3 flex items-center justify-center gap-2">
+                        <i data-lucide="calendar" class="w-4 h-4 text-slate-400"></i>
+                        <label class="relative cursor-pointer">
+                            <input type="date" id="scoring-date-picker" value="${dateKey}"
+                                   onchange="App.changeScoringDate('${memberId}', this.value)"
+                                   class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white font-bold text-center focus:border-brand-gold outline-none cursor-pointer">
+                        </label>
+                        <span class="text-[10px] text-slate-500 uppercase font-bold tracking-wider">
+                            ${dateKey === Utils.getTodayKey() ? 'Hoje' : 'Retroativo'}
                         </span>
                     </div>
                 </div>
@@ -277,13 +292,26 @@ export const ScoringMethods = {
             items: isAbsent ? {} : items
         };
 
-        await Store.saveScore(memberId, Utils.getTodayKey(), scoreData);
-        Toast.show('Pontuação salva!', 'success');
+        const saveDate = this.scoringDate || Utils.getTodayKey();
+        await Store.saveScore(memberId, saveDate, scoreData);
+
+        const isRetroactive = saveDate !== Utils.getTodayKey();
+        Toast.show(isRetroactive ? `Pontuação salva para ${Utils.formatDate(saveDate)}!` : 'Pontuação salva!', 'success');
 
         if (Haptic) Haptic.success();
 
+        // Clear scoring date state
+        this.scoringDate = null;
+
         // Go back naturally
         this.goBack();
+    },
+
+    changeScoringDate(memberId, newDate) {
+        if (!newDate) return;
+        this.scoringDate = newDate;
+        // Re-render entire scoring page with the new date's data
+        this.renderScoring(memberId);
     },
 
     inactivateMemberPrompt(memberId) {
