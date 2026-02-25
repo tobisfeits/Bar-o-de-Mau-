@@ -88,6 +88,68 @@ export const ReportMethods = {
         Toast.show('Relatório exportado com sucesso!', 'success');
     },
 
+    // Exportar para CSV (sem dependências externas)
+    async exportToCSV() {
+        const startDate = document.getElementById('report-start-date')?.value || Utils.getTodayKey();
+        const endDate = document.getElementById('report-end-date')?.value || Utils.getTodayKey();
+
+        await Store.fetchScoresRange(startDate, endDate);
+
+        const units = await Store.getUnits();
+        const members = await Store.getMembers();
+        const allScores = await Store.getScores();
+
+        // CSV header
+        const headers = ['Desbravador', 'Unidade', 'Função', 'Data', 'Pontos', 'Status'];
+        const rows = [headers.join(';')];
+
+        const start = new Date(startDate + 'T12:00:00');
+        const end = new Date(endDate + 'T12:00:00');
+
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+            const dateKey = d.toISOString().split('T')[0];
+            const dayScores = allScores[dateKey] || {};
+
+            for (const member of members) {
+                const score = dayScores[member.id];
+                const unit = units.find(u => u.id === member.unitId);
+                const points = score ? (score.isAbsent ? 0 : Utils.countTotal(score)) : '';
+                const status = !score ? 'Não avaliado' : score.isAbsent ? 'Ausente' : 'Presente';
+
+                // Only include rows where there is actual data
+                if (score) {
+                    rows.push([
+                        `"${Sanitizer.normalizeName(member.name)}"`,
+                        `"${unit?.name || 'N/A'}"`,
+                        `"${member.role || 'DESBRAVADOR'}"`,
+                        Utils.formatDate(dateKey),
+                        points,
+                        status
+                    ].join(';'));
+                }
+            }
+        }
+
+        if (rows.length <= 1) {
+            Toast.show('Nenhum dado encontrado no período selecionado', 'error');
+            return;
+        }
+
+        // BOM for Excel UTF-8 compatibility
+        const bom = '\uFEFF';
+        const csvContent = bom + rows.join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `relatorio_${startDate}_a_${endDate}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        Toast.show('CSV exportado com sucesso!', 'success');
+    },
+
     async renderReport(startDate = null, endDate = null) {
         // Se não houver datas, usar últimos 30 dias como padrão
         const todayKey = Utils.getTodayKey();
@@ -293,27 +355,37 @@ export const ReportMethods = {
                 
                 <div class="fixed bottom-0 left-0 right-0 p-4 bg-slate-950/95 backdrop-blur 
                             border-t border-slate-800 flex flex-col gap-2 z-50">
-                    <button onclick="window.print()" 
-                            class="w-full py-3 rounded-xl font-bold text-white 
-                                   bg-brand-navy hover:bg-brand-navy/90 
-                                   flex items-center justify-center gap-2 shadow-lg">
-                        <i data-lucide="file-text" class="w-5 h-5"></i> 
-                        Exportar PDF
-                    </button>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="window.print()" 
+                                class="py-3 rounded-xl font-bold text-white 
+                                       bg-brand-navy hover:bg-brand-navy/90 
+                                       flex items-center justify-center gap-2 shadow-lg text-sm">
+                            <i data-lucide="file-text" class="w-4 h-4"></i> 
+                            PDF
+                        </button>
+                        
+                        <button onclick="App.exportToCSV()" 
+                                class="py-3 rounded-xl font-bold text-emerald-400 
+                                       bg-emerald-900/20 border border-emerald-900/30 hover:bg-emerald-900/30 
+                                       flex items-center justify-center gap-2 text-sm">
+                            <i data-lucide="table" class="w-4 h-4"></i> 
+                            CSV / Excel
+                        </button>
+                    </div>
                     
                     <a href="${Utils.generateWhatsAppLink(generateWhatsAppText())}" 
                        target="_blank" 
                        class="w-full py-3 rounded-xl font-bold text-green-400 
                               bg-green-900/20 border border-green-900/30 hover:bg-green-900/30 
-                              flex items-center justify-center gap-2 no-underline">
-                        <i data-lucide="message-circle" class="w-5 h-5"></i> 
-                        Compartilhar WhatsApp
+                              flex items-center justify-center gap-2 no-underline text-sm">
+                        <i data-lucide="message-circle" class="w-4 h-4"></i> 
+                        WhatsApp
                     </a>
                     
                     <button onclick="App.navigate('dashboard')" 
-                            class="w-full py-3 rounded-xl font-bold text-slate-400 
+                            class="w-full py-2 rounded-xl font-bold text-slate-400 
                                    bg-slate-800 hover:bg-slate-700 
-                                   flex items-center justify-center gap-2">
+                                   flex items-center justify-center gap-2 text-sm">
                         Voltar
                     </button>
                 </div>
