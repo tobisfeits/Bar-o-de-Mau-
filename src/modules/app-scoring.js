@@ -285,6 +285,15 @@ export const ScoringMethods = {
             if (selectedPrayer) {
                 items[CONFIG.PRAYER_EVENT.id] = selectedPrayer.id;
             }
+
+            // --- Blank form validation ---
+            const hasAnyScore = Object.values(items).some(v => v === true);
+            const hasPrayer = !!selectedPrayer;
+            if (!hasAnyScore && !hasPrayer) {
+                Toast.show('Atenção: Você precisa realizar pelo menos um lançamento de pontos ou marcar o desbravador como ausente antes de salvar.', 'error');
+                if (Haptic) Haptic.error();
+                return;
+            }
         }
 
         const scoreData = {
