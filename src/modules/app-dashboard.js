@@ -65,7 +65,27 @@ export const DashboardMethods = {
     },
 
     async renderDashboard() {
-        Loading.show('Carregando dados...');
+        // Show skeleton placeholders instead of generic spinner (A10)
+        this.mountPoint.innerHTML = `
+            <div class="p-4 space-y-4 animate-pulse">
+                <div class="h-20 bg-slate-800 rounded-2xl"></div>
+                <div class="grid grid-cols-3 gap-3">
+                    <div class="h-16 bg-slate-800 rounded-xl"></div>
+                    <div class="h-16 bg-slate-800 rounded-xl"></div>
+                    <div class="h-16 bg-slate-800 rounded-xl"></div>
+                </div>
+                ${[1, 2, 3].map(() => `
+                <div class="bg-slate-900 rounded-xl p-4 border border-slate-800">
+                    <div class="flex items-center gap-4">
+                        <div class="w-14 h-14 bg-slate-800 rounded-2xl"></div>
+                        <div class="flex-1 space-y-2">
+                            <div class="h-4 bg-slate-800 rounded w-2/3"></div>
+                            <div class="h-3 bg-slate-800 rounded w-1/3"></div>
+                        </div>
+                        <div class="h-8 w-16 bg-slate-800 rounded-lg"></div>
+                    </div>
+                </div>`).join('')}
+            </div>`;
 
         try {
             const todayKey = App.currentDate;

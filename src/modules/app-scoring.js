@@ -318,9 +318,28 @@ export const ScoringMethods = {
 
     changeScoringDate(memberId, newDate) {
         if (!newDate) return;
-        this.scoringDate = newDate;
-        // Re-render entire scoring page with the new date's data
-        this.renderScoring(memberId);
+
+        // Check for unsaved changes (any toggle that was modified)
+        const hasChanges = document.querySelectorAll('#score-items-container input[type="checkbox"]:checked').length > 0
+            || document.getElementById('toggle-absent')?.checked;
+
+        if (hasChanges) {
+            ConfirmDialog.show(
+                'Você tem alterações não salvas. Deseja trocar a data e perder as alterações?',
+                () => {
+                    this.scoringDate = newDate;
+                    this.renderScoring(memberId);
+                },
+                () => {
+                    // Reset date picker to current scoring date
+                    const picker = document.getElementById('scoring-date-picker');
+                    if (picker) picker.value = this.scoringDate;
+                }
+            );
+        } else {
+            this.scoringDate = newDate;
+            this.renderScoring(memberId);
+        }
     },
 
     inactivateMemberPrompt(memberId) {

@@ -164,7 +164,12 @@ export const UnitMethods = {
                                             </div>
                                         </div>
                                         
-                                        <div class="flex items-center gap-3">
+                                        <div class="flex items-center gap-2">
+                                            ${score ? `
+                                            <div class="w-6 h-6 rounded-full ${score.isAbsent ? 'bg-red-500/20' : 'bg-green-500/20'} flex items-center justify-center">
+                                                <i data-lucide="${score.isAbsent ? 'user-x' : 'check'}" class="w-3.5 h-3.5 ${score.isAbsent ? 'text-red-400' : 'text-green-400'}"></i>
+                                            </div>
+                                            ` : ''}
                                             <i data-lucide="chevron-right" class="w-5 h-5 text-slate-700 group-hover:text-slate-400 transition-colors"></i>
                                         </div>
                                     </div>
