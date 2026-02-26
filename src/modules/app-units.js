@@ -27,7 +27,7 @@ export const UnitMethods = {
             }
 
             const members = await Store.getMembersByUnit(unitId);
-            const todayKey = Utils.getTodayKey();
+            const todayKey = App.currentDate || Utils.getTodayKey();
             const allScores = await Store.getScores();
             const todayScores = allScores[todayKey] || {};
 
@@ -74,6 +74,9 @@ export const UnitMethods = {
                 }
                                 </div>
                                 <div>
+                                    <h3 class="text-brand-gold font-black uppercase tracking-widest text-sm">
+                                    Avaliação de ${todayKey === Utils.getTodayKey() ? 'Hoje' : Utils.formatDate(todayKey)}
+                                </h3>
                                     <h2 class="text-3xl font-black text-white uppercase tracking-wider leading-none">
                                         ${unit.name}
                                     </h2>
@@ -90,7 +93,7 @@ export const UnitMethods = {
                                     <p class="text-xl font-black text-white">${stats.evaluated}/${members.length}</p>
                                 </div>
                                 <div class="bg-slate-950/50 p-3 rounded-xl border border-slate-800 backdrop-blur">
-                                    <p class="text-slate-400 text-[10px] uppercase font-bold">Média Hoje</p>
+                                    <p class="text-slate-400 text-[10px] uppercase font-bold">Média ${todayKey === Utils.getTodayKey() ? 'Hoje' : 'Data'}</p>
                                     <p class="text-xl font-black text-brand-gold">${avgPoints}</p>
                                 </div>
                                 <div class="bg-slate-950/50 p-3 rounded-xl border border-slate-800 backdrop-blur">

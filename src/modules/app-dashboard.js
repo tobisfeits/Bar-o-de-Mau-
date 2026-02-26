@@ -68,7 +68,7 @@ export const DashboardMethods = {
         Loading.show('Carregando dados...');
 
         try {
-            const todayKey = Utils.getTodayKey();
+            const todayKey = App.currentDate;
             const allUnits = await Store.getUnits();
             const allScores = await Store.getScores();
 
@@ -90,9 +90,21 @@ export const DashboardMethods = {
                     <div class="flex justify-between items-center mb-6">
                         <div>
                             <h2 class="text-2xl font-black text-white uppercase tracking-wider">Unidades</h2>
-                            <p class="text-slate-400 text-sm font-medium">
-                                ${Utils.formatDate(todayKey)}
-                            </p>
+                            
+                            ${RBAC.canManageUnits() ? `
+                                <div class="flex items-center gap-2 mt-1">
+                                    <input type="date" 
+                                           id="session-date-picker" 
+                                           value="${todayKey}"
+                                           onchange="App.changeSessionDate(this.value)"
+                                           class="bg-slate-800 border-none text-brand-gold font-bold text-sm rounded px-2 py-0.5 outline-none focus:ring-1 focus:ring-brand-gold cursor-pointer">
+                                </div>
+                            ` : `
+                                <p class="text-slate-400 text-sm font-medium">
+                                    ${Utils.formatDate(todayKey)}
+                                </p>
+                            `}
+
                             <!-- Sync Status Indicator -->
                             <div id="sync-status" class="mt-2 text-xs font-bold px-2 py-1 rounded w-fit hidden">
                                 <span class="indicator mr-1">●</span> <span class="text">Online</span>
@@ -138,13 +150,13 @@ export const DashboardMethods = {
                             </div>
                             <div class="text-xs text-slate-400 uppercase font-bold">Unidades</div>
                          </div>
-                         <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
+                          <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
                             <i data-lucide="check-circle" class="w-6 h-6 text-green-400 mb-2"></i>
                             <div class="text-2xl font-black text-white">
                                 ${Object.keys(allScores[todayKey] || {}).length}
                             </div>
-                            <div class="text-xs text-slate-400 uppercase font-bold">Avaliações Hoje</div>
-                         </div>
+                            <div class="text-xs text-slate-400 uppercase font-bold">Avaliações ${todayKey === Utils.getTodayKey() ? 'Hoje' : 'na Data'}</div>
+                          </div>
                     </div>
 
                     <!-- Units Grid -->
