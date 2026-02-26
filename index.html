@@ -37,7 +37,7 @@
 
     <!-- Content Security Policy -->
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; 
-                   script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://cdn.tailwindcss.com https://cdn.sheetjs.com;
+                   script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://cdn.sheetjs.com;
                    style-src 'self' 'unsafe-inline';
                    img-src 'self' data: https:;
                    font-src 'self' data:;
@@ -71,24 +71,9 @@
     <!-- Lucide Icons (CRITICAL: Required for UI rendering) -->
     <script src="https://unpkg.com/lucide@0.310.0"></script>
 
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        'brand-navy': '#1a2332',
-                        'brand-gold': '#d4af37',
-                        'brand-red': '#8b0000'
-                    }
-                }
-            }
-        }
-    </script>
+    <!-- Tailwind CSS (Pre-compiled Production Build) -->
+    <link rel="stylesheet" href="dist/output.css">
 
-    <!-- Custom Styles -->
-    <link rel="stylesheet" href="styles.css">
 
     <!-- Simple PIN Hasher (Web Crypto API - No external dependencies) -->
     <script type="module" src="src/core/simple-pin-hasher.js"></script>

@@ -1,7 +1,7 @@
 // Service Worker for Barão de Mauá PWA - IMPROVED VERSION
 // Auto-update with network-first strategy for critical files
 
-const CACHE_VERSION = '2026.02.26.001'; // Counselor date picker (A1)
+const CACHE_VERSION = '2026.02.26.002'; // Tailwind production build (A3)
 const CACHE_NAME = `barao-maua-v${CACHE_VERSION}`;
 const RUNTIME_CACHE = `barao-maua-runtime-v${CACHE_VERSION}`;
 
