@@ -6,6 +6,7 @@ import { CONFIG } from '../config/constants.js';
 import { DevStorage } from '../data/dev-storage.js';
 import { BiometricAuth } from '../core/biometric-auth.js';
 import { ConfirmDialog } from '../ui/dialogs.js';
+import { Sanitizer } from '../utils/sanitizer.js';
 
 export const AuthMethods = {
     sessionTimeout: null,
@@ -120,18 +121,20 @@ export const AuthMethods = {
                                     <!-- Options List -->
                                     <div id="user-dropdown-list" class="max-h-48 overflow-y-auto py-1">
                                         ${users.map(u => {
+            const safeName = Sanitizer.html(u.name);
+            const attrName = Sanitizer.attribute(u.name);
             const initials = u.name.split(' ').map(w => w[0]).filter((_, i, a) => i === 0 || i === a.length - 1).join('').toUpperCase();
             return `
                                             <button type="button" 
-                                                    onclick="App.selectUser('${u.id}', '${u.name.replace(/'/g, "\\'")}', '${initials}')"
+                                                    onclick="App.selectUser('${u.id}', '${attrName}', '${initials}')"
                                                     class="user-option w-full px-3 py-2.5 flex items-center gap-3 hover:bg-slate-800/80
                                                            transition-colors text-left"
-                                                    data-name="${u.name.toLowerCase()}">
+                                                    data-name="${attrName.toLowerCase()}">
                                                 <span class="w-8 h-8 rounded-full bg-brand-gold/15 border border-brand-gold/30 
                                                              flex items-center justify-center text-xs font-black text-brand-gold shrink-0">
                                                     ${initials}
                                                 </span>
-                                                <span class="text-white text-sm font-medium truncate">${u.name}</span>
+                                                <span class="text-white text-sm font-medium truncate">${safeName}</span>
                                             </button>`;
         }).join('')}
                                     </div>

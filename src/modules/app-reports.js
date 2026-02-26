@@ -53,9 +53,23 @@ export const ReportMethods = {
 
     // Exportar para Excel
     async exportToExcel() {
+        // Lazy load SheetJS only when needed (~500KB saved on startup)
         if (typeof XLSX === 'undefined') {
-            Toast.show('Biblioteca de exportação não carregada', 'error');
-            return;
+            Loading.show('Carregando biblioteca Excel...');
+            try {
+                await new Promise((resolve, reject) => {
+                    const script = document.createElement('script');
+                    script.src = 'https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js';
+                    script.onload = resolve;
+                    script.onerror = reject;
+                    document.head.appendChild(script);
+                });
+            } catch {
+                Loading.hide();
+                Toast.show('Erro ao carregar biblioteca de exportação', 'error');
+                return;
+            }
+            Loading.hide();
         }
 
         const todayKey = Utils.getTodayKey();
