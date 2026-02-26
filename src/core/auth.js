@@ -235,7 +235,7 @@ export const RBAC = {
      * @returns {boolean}
      */
     canViewReports() {
-        if (!this.currentUser) return true;
+        if (!this.currentUser) return false;
         return !this.isAuxiliar();
     },
 
@@ -244,7 +244,7 @@ export const RBAC = {
      * @returns {boolean}
      */
     canViewRanking() {
-        if (!this.currentUser) return true;
+        if (!this.currentUser) return false;
         return !this.isAuxiliar();
     },
 
@@ -253,7 +253,7 @@ export const RBAC = {
      * @returns {boolean}
      */
     canUploadPhotos() {
-        if (!this.currentUser) return true;
+        if (!this.currentUser) return false;
         return !this.isAuxiliar();
     },
 
