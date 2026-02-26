@@ -79,7 +79,10 @@ export const DataAdapter = {
                     unitId: member.unit_id,
                     photo_url: member.photo_url,
                     isCounselor: member.is_counselor,
-                    isManualUnit: member.is_manual_unit
+                    isManualUnit: member.is_manual_unit,
+                    role: member.role,
+                    gender: member.gender,
+                    birthDate: member.birth_date
                 }));
 
                 Cache.set('members', members);
