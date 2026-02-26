@@ -25,20 +25,37 @@ export const CounselorMethods = {
 
         const units = await Store.getUnits();
         const unit = units.find(u => u.id === member.unitId);
-        const todayKey = Utils.getTodayKey();
-        const existingScore = await Store.getCounselorScore(counselorId, todayKey) || { items: {} };
+        const dateKey = this.counselorScoringDate || this.currentDate || Utils.getTodayKey();
+        this.counselorScoringDate = dateKey;
+        const existingScore = await Store.getCounselorScore(counselorId, dateKey) || { items: {} };
         const currentTotal = Utils.countCounselorTotal(existingScore);
 
         const html = `
             <div class="slide-in pb-24">
                 <!-- Header com Botão Voltar -->
-                <div class="flex items-center justify-between mb-4">
-                    <button onclick="App.goBack()" 
-                            class="flex items-center gap-1 text-slate-400 hover:text-white transition-colors text-sm">
-                        <i data-lucide="arrow-left" class="w-4 h-4"></i>
-                        <span class="text-xs">Voltar</span>
-                    </button>
-                    <span class="text-brand-gold font-bold text-sm">${unit ? unit.name : ''}</span>
+                <div class="bg-slate-900 border-b border-slate-800 p-4 sticky top-0 z-30 shadow-lg">
+                    <div class="flex items-center justify-between">
+                        <button onclick="App.goBack()" 
+                                class="flex items-center gap-2 text-slate-400 hover:text-white transition-colors">
+                            <i data-lucide="arrow-left" class="w-5 h-5"></i>
+                            <span class="font-bold text-sm uppercase">Voltar</span>
+                        </button>
+                        <span class="text-brand-gold font-bold text-sm bg-brand-gold/10 px-3 py-1 rounded-full border border-brand-gold/20">
+                            ${unit ? unit.name : ''}
+                        </span>
+                    </div>
+                    <!-- Date Picker -->
+                    <div class="mt-3 flex items-center justify-center gap-2">
+                        <i data-lucide="calendar" class="w-4 h-4 text-slate-400"></i>
+                        <label class="relative cursor-pointer">
+                            <input type="date" id="counselor-date-picker" value="${dateKey}"
+                                   onchange="App.changeCounselorScoringDate('${counselorId}', this.value)"
+                                   class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white font-bold text-center focus:border-brand-gold outline-none cursor-pointer">
+                        </label>
+                        <span class="text-[10px] text-slate-500 uppercase font-bold tracking-wider">
+                            ${dateKey === Utils.getTodayKey() ? 'Hoje' : 'Retroativo'}
+                        </span>
+                    </div>
                 </div>
                 
                 <div class="text-center border-b-2 border-dashed border-slate-700 pb-4 mb-6">
@@ -150,10 +167,22 @@ export const CounselorMethods = {
         });
 
         const scoreData = { items };
-        await Store.saveCounselorScore(counselorId, Utils.getTodayKey(), scoreData);
+        const saveDate = this.counselorScoringDate || Utils.getTodayKey();
+        await Store.saveCounselorScore(counselorId, saveDate, scoreData);
 
-        Toast.show('Avaliação salva com sucesso!', 'success');
+        const isRetroactive = saveDate !== Utils.getTodayKey();
+        Toast.show(isRetroactive ? `Avaliação salva para ${Utils.formatDate(saveDate)}!` : 'Avaliação salva com sucesso!', 'success');
+
+        // Clear counselor scoring date
+        this.counselorScoringDate = null;
+
         this.navigate('dashboard');
+    },
+
+    changeCounselorScoringDate(counselorId, newDate) {
+        if (!newDate) return;
+        this.counselorScoringDate = newDate;
+        this.renderCounselorEvaluation(counselorId);
     },
 
     async renderCounselorRanking() {
