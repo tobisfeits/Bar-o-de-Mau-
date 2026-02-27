@@ -309,11 +309,9 @@ export const ScoringMethods = {
 
         if (Haptic) Haptic.success();
 
-        // Clear scoring date state
-        this.scoringDate = null;
-
-        // Go back naturally
-        this.goBack();
+        // Stay on the member's scoring screen after saving
+        // so the user can review the result, then press Back to return to the unit list.
+        await this.renderScoring(memberId);
     },
 
     changeScoringDate(memberId, newDate) {
