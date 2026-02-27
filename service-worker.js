@@ -1,7 +1,7 @@
 // Service Worker for Barão de Mauá PWA - IMPROVED VERSION
 // Auto-update with network-first strategy for critical files
 
-const CACHE_VERSION = '2026.02.27.001'; // fix: navigation back button + post-save stays on member
+const CACHE_VERSION = '2026.02.27.002'; // fix: goBack uses internal nav stack instead of window.history
 const CACHE_NAME = `barao-maua-v${CACHE_VERSION}`;
 const RUNTIME_CACHE = `barao-maua-runtime-v${CACHE_VERSION}`;
 

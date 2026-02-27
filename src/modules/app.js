@@ -221,12 +221,12 @@ export const App = {
     },
 
     goBack() {
-        if (Navigation.canGoBack()) {
-            // Using browser back is better if we used pushState
-            window.history.back();
-        } else {
-            this.navigate('dashboard');
-        }
+        // Use our internal Navigation stack as the source of truth.
+        // window.history.back() is unreliable because the initial page load
+        // has no pushState state (null), causing onpopstate to redirect to
+        // Dashboard regardless of the actual navigation depth.
+        const prev = Navigation.pop(); // pops current, returns previous entry
+        this.navigate(prev.view, prev.params, false); // navigate WITHOUT adding to history
     },
 
     changeSessionDate(newDate) {
