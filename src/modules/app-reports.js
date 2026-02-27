@@ -1,431 +1,635 @@
 import { Store } from '../data/store.js';
+import { RBAC } from '../core/auth.js';
 import { Utils } from './ui-utils.js';
 import { Sanitizer } from '../utils/sanitizer.js';
 import { Toast } from '../ui/toast.js';
-import { Theme } from '../ui/theme.js';
+import { Loading } from '../ui/loading.js';
+import { CONFIG } from '../config/constants.js';
+
+// ── Prayer event status helpers ─────────────────────────────────────────────
+const PRAYER_STATUS_MAP = {
+    very_satisfactory: { label: 'Muito Satisfatório', emoji: '😊', color: 'text-green-400', bg: 'bg-green-500/15 border-green-500/30' },
+    satisfactory:      { label: 'Satisfatório',       emoji: '🙂', color: 'text-blue-400',  bg: 'bg-blue-500/15 border-blue-500/30' },
+    not_satisfactory:  { label: 'Não Satisfatório',   emoji: '😕', color: 'text-orange-400',bg: 'bg-orange-500/15 border-orange-500/30' },
+    absent:            { label: 'Ausente',             emoji: '😔', color: 'text-red-400',   bg: 'bg-red-500/15 border-red-500/30' },
+};
+
+const WEEK_DAYS = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 
 export const ReportMethods = {
-    // Criar gráfico de comparação de unidades
-    createUnitComparisonChart(unitStats) {
-        const canvas = document.getElementById('unitComparisonChart');
-        if (!canvas || typeof Chart === 'undefined') return;
 
-        const ctx = canvas.getContext('2d');
-        new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: unitStats.map(u => u.name),
-                datasets: [{
-                    label: 'Média de Pontos',
-                    data: unitStats.map(u => u.average),
-                    backgroundColor: Theme.isDark() ? '#fbbf24' : '#d4af37',
-                    borderColor: Theme.isDark() ? '#f59e0b' : '#b8941f',
-                    borderWidth: 2
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    title: {
-                        display: true,
-                        text: 'Comparação entre Unidades',
-                        color: Theme.isDark() ? '#f1f5f9' : '#1f2937',
-                        font: { size: 16, weight: 'bold' }
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        max: 140,
-                        ticks: { color: Theme.isDark() ? '#cbd5e1' : '#6b7280' },
-                        grid: { color: Theme.isDark() ? '#334155' : '#e5e7eb' }
-                    },
-                    x: {
-                        ticks: { color: Theme.isDark() ? '#cbd5e1' : '#6b7280' },
-                        grid: { display: false }
-                    }
-                }
-            }
-        });
-    },
-
-    // Exportar para Excel
-    async exportToExcel() {
-        // Lazy load SheetJS only when needed (~500KB saved on startup)
-        if (typeof XLSX === 'undefined') {
-            Loading.show('Carregando biblioteca Excel...');
-            try {
-                await new Promise((resolve, reject) => {
-                    const script = document.createElement('script');
-                    script.src = 'https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js';
-                    script.onload = resolve;
-                    script.onerror = reject;
-                    document.head.appendChild(script);
-                });
-            } catch {
-                Loading.hide();
-                Toast.show('Erro ao carregar biblioteca de exportação', 'error');
-                return;
-            }
-            Loading.hide();
-        }
-
-        const todayKey = Utils.getTodayKey();
-        const units = await Store.getUnits();
-        const members = await Store.getMembers();
-        const allScores = await Store.getScores();
-        const scores = allScores[todayKey] || {};
-
-        const data = members.map(member => {
-            const score = scores[member.id];
-            const unit = units.find(u => u.id === member.unitId);
-            const points = score?.isAbsent ? 0 : Utils.countTotal(score);
-
-            return {
-                'Desbravador': Sanitizer.normalizeName(member.name),
-                'Unidade': unit?.name || 'N/A',
-                'Pontos': points,
-                'Percentual': Utils.getPercentage(points) + '%',
-                'Status': !score ? 'Não avaliado' : score.isAbsent ? 'Ausente' : 'Presente'
-            };
-        });
-
-        const ws = XLSX.utils.json_to_sheet(data);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Relatório');
-
-        const filename = `relatorio_${todayKey}.xlsx`;
-        XLSX.writeFile(wb, filename);
-
-        Toast.show('Relatório exportado com sucesso!', 'success');
-    },
-
-    // Exportar para CSV (sem dependências externas)
-    async exportToCSV() {
-        const startDate = document.getElementById('report-start-date')?.value || Utils.getTodayKey();
-        const endDate = document.getElementById('report-end-date')?.value || Utils.getTodayKey();
-
-        await Store.fetchScoresRange(startDate, endDate);
-
-        const units = await Store.getUnits();
-        const members = await Store.getMembers();
-        const allScores = await Store.getScores();
-
-        // CSV header
-        const headers = ['Desbravador', 'Unidade', 'Função', 'Data', 'Pontos', 'Status'];
-        const rows = [headers.join(';')];
-
-        const start = new Date(startDate + 'T12:00:00');
-        const end = new Date(endDate + 'T12:00:00');
-
-        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-            const dateKey = d.toISOString().split('T')[0];
-            const dayScores = allScores[dateKey] || {};
-
-            for (const member of members) {
-                const score = dayScores[member.id];
-                const unit = units.find(u => u.id === member.unitId);
-                const points = score ? (score.isAbsent ? 0 : Utils.countTotal(score)) : '';
-                const status = !score ? 'Não avaliado' : score.isAbsent ? 'Ausente' : 'Presente';
-
-                // Only include rows where there is actual data
-                if (score) {
-                    rows.push([
-                        `"${Sanitizer.normalizeName(member.name)}"`,
-                        `"${unit?.name || 'N/A'}"`,
-                        `"${member.role || 'DESBRAVADOR'}"`,
-                        Utils.formatDate(dateKey),
-                        points,
-                        status
-                    ].join(';'));
-                }
-            }
-        }
-
-        if (rows.length <= 1) {
-            Toast.show('Nenhum dado encontrado no período selecionado', 'error');
+    // ── Entry point ─────────────────────────────────────────────────────────
+    async renderReport(startDate = null, endDate = null) {
+        if (!RBAC.canViewReports()) {
+            this.navigate('dashboard');
             return;
         }
 
-        // BOM for Excel UTF-8 compatibility
-        const bom = '\uFEFF';
-        const csvContent = bom + rows.join('\n');
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `relatorio_${startDate}_a_${endDate}.csv`;
-        a.click();
-        URL.revokeObjectURL(url);
-
-        Toast.show('CSV exportado com sucesso!', 'success');
-    },
-
-    async renderReport(startDate = null, endDate = null) {
-        // Se não houver datas, usar últimos 30 dias como padrão
         const todayKey = Utils.getTodayKey();
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const defaultStart = startDate || thirtyDaysAgo.toISOString().split('T')[0];
+        const defaultEnd   = endDate   || todayKey;
 
-        // Calcular data de 30 dias atrás
-        const today = new Date();
-        const thirtyDaysAgo = new Date(today);
-        thirtyDaysAgo.setDate(today.getDate() - 30);
-        const thirtyDaysAgoKey = thirtyDaysAgo.toISOString().split('T')[0];
-
-        const defaultStart = startDate || thirtyDaysAgoKey;
-        const defaultEnd = endDate || todayKey;
-
-        // Ensure data for the period is loaded
-        Loading.show('Carregando dados do período...');
-        await Store.fetchScoresRange(defaultStart, defaultEnd);
-        Loading.hide();
-
-        const units = await Store.getUnits();
-        const members = await Store.getMembers();
-        const allScores = await Store.getScores();
-
-        // Calcular pontuação acumulada no período
-        const calculatePeriodScores = (memberId) => {
-            let totalPoints = 0;
-            let daysEvaluated = 0;
-            let daysAbsent = 0;
-
-            // Iterar por todas as datas no período
-            const start = new Date(defaultStart);
-            const end = new Date(defaultEnd);
-
-            for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-                const dateKey = d.toISOString().split('T')[0];
-                const dayScores = allScores[dateKey] || {};
-                const memberScore = dayScores[memberId];
-
-                if (memberScore) {
-                    daysEvaluated++;
-                    if (memberScore.isAbsent) {
-                        daysAbsent++;
-                    } else {
-                        totalPoints += Utils.countTotal(memberScore);
-                    }
-                }
-            }
-
-            return { totalPoints, daysEvaluated, daysAbsent };
-        };
-
-        const memberStats = members.map(member => {
-            const { totalPoints, daysEvaluated, daysAbsent } = calculatePeriodScores(member.id);
-            const evaluated = daysEvaluated > 0;
-            // Updated total points from 190 to 180 (removed Social Media)
-            // Ideally should use CONFIG.TOTAL_POINTS but keeping style consistent for now
-            const percent = evaluated ? Math.round((totalPoints / (184 * daysEvaluated)) * 100) : 0;
-
-            return {
-                ...member,
-                points: totalPoints,
-                percent,
-                daysEvaluated,
-                daysAbsent,
-                evaluated,
-                unit: units.find(u => u.id === member.unitId)
-            };
-        });
-
-        const unitStats = units.map(unit => {
-            const unitMembers = memberStats.filter(m => m.unitId === unit.id);
-            const totalPoints = unitMembers.reduce((sum, m) => sum + m.points, 0);
-            const average = unitMembers.length > 0 ? Math.round(totalPoints / unitMembers.length) : 0;
-
-            return {
-                ...unit,
-                average,
-                memberCount: unitMembers.length,
-                members: unitMembers
-            };
-        }).sort((a, b) => b.average - a.average);
-
-        const bestUnit = unitStats[0];
-
-        // Formatar período para exibição
-        const periodText = defaultStart === defaultEnd
-            ? Utils.formatDate(defaultStart)
-            : `${Utils.formatDate(defaultStart)} até ${Utils.formatDate(defaultEnd)}`;
-
-        const generateWhatsAppText = () => {
-            let text = `*RELATÓRIO - ${periodText}*\n\n`;
-            text += `🏆 *Unidade Destaque:* ${bestUnit ? bestUnit.name : 'N/A'}\n`;
-            text += `📊 *Média Geral:* ${Math.round(unitStats.reduce((sum, u) => sum + u.average, 0) / (unitStats.length || 1))} pts\n\n`;
-
-            unitStats.forEach(unit => {
-                text += `*${unit.name}* (Média: ${unit.average} pts)\n`;
-                unit.members.forEach(member => {
-                    const status = !member.evaluated
-                        ? 'Não avaliado'
-                        : `${member.points} pts (${member.daysEvaluated} dias)`;
-                    text += `- ${Sanitizer.normalizeName(member.name)}: ${status}\n`;
-                });
-                text += '\n';
-            });
-
-            return text;
-        };
+        this._reportRange = { start: defaultStart, end: defaultEnd };
+        this._activeReportTab = this._activeReportTab || 'individual';
 
         const html = `
-            <div class="slide-in pb-24 space-y-6">
-                <div class="text-center border-b-2 border-slate-800 pb-4 mt-4">
-                    <h2 class="text-2xl font-black text-white uppercase tracking-widest">
-                        RELATÓRIO DE PONTUAÇÃO
-                    </h2>
-                    <p class="text-sm font-bold text-slate-400 mt-1">
-                        Período: ${periodText}
-                    </p>
+            <div class="slide-in pb-32">
+                <!-- Header -->
+                <div class="flex items-center justify-between mb-5">
+                    <div>
+                        <h2 class="text-2xl font-black text-white uppercase tracking-wider">Relatórios</h2>
+                        <p class="text-slate-400 text-sm">Análise e acompanhamento do clube</p>
+                    </div>
                 </div>
-                
-                <!-- Date Range Filter -->
-                <div class="bg-slate-800/50 rounded-xl p-4 border border-slate-700 space-y-3">
-                    <div class="flex items-center gap-2 text-brand-gold mb-2">
-                        <i data-lucide="calendar" class="w-5 h-5"></i>
-                        <span class="font-bold text-sm uppercase">Filtrar por Período</span>
+
+                <!-- Date Range -->
+                <div class="bg-slate-900 rounded-xl border border-slate-700 p-3 mb-5 flex gap-2 items-end">
+                    <div class="flex-1">
+                        <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase">De</label>
+                        <input type="date" id="rpt-start" value="${defaultStart}" max="${todayKey}"
+                               class="w-full px-2 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-slate-200 text-sm focus:outline-none focus:border-brand-gold">
                     </div>
-                    
-                    <div class="grid grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-xs font-bold text-slate-400 mb-1">Data Inicial</label>
-                            <input type="date" 
-                                   id="report-start-date" 
-                                   value="${defaultStart}"
-                                   max="${todayKey}"
-                                   class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg 
-                                          text-slate-200 text-sm focus:outline-none focus:ring-2 
-                                          focus:ring-brand-gold/50 focus:border-brand-gold">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-slate-400 mb-1">Data Final</label>
-                            <input type="date" 
-                                   id="report-end-date" 
-                                   value="${defaultEnd}"
-                                   max="${todayKey}"
-                                   class="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg 
-                                          text-slate-200 text-sm focus:outline-none focus:ring-2 
-                                          focus:ring-brand-gold/50 focus:border-brand-gold">
-                        </div>
+                    <div class="flex-1">
+                        <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase">Até</label>
+                        <input type="date" id="rpt-end" value="${defaultEnd}" max="${todayKey}"
+                               class="w-full px-2 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-slate-200 text-sm focus:outline-none focus:border-brand-gold">
                     </div>
-                    
-                    <button onclick="App.applyReportDateFilter()" 
-                            class="w-full py-2 bg-brand-gold text-slate-900 rounded-lg font-bold text-sm
-                                   hover:bg-brand-gold/90 transition-colors flex items-center justify-center gap-2">
-                        <i data-lucide="filter" class="w-4 h-4"></i>
-                        Aplicar Filtro
+                    <button onclick="App.applyReportDateFilter()"
+                            class="px-4 py-1.5 bg-brand-gold text-slate-900 rounded-lg font-bold text-sm whitespace-nowrap">
+                        Filtrar
                     </button>
                 </div>
-                
-                <div class="bg-brand-navy/10 p-4 rounded-xl border border-brand-navy/20 text-center">
-                    <span class="text-xs font-bold text-brand-gold uppercase">
-                        Unidade Destaque do Período
-                    </span>
-                    <div class="text-xl font-black text-white mt-1">
-                        ${bestUnit ? bestUnit.name : '-'}
-                    </div>
-                    <div class="text-sm text-slate-400 mt-1">
-                        Média: ${bestUnit ? bestUnit.average : '0'} pontos
-                    </div>
-                </div>
-                
-                <div class="space-y-8">
-                    ${unitStats.map(unit => `
-                        <div class="space-y-4">
-                            <h3 class="text-lg font-bold text-white border-b border-slate-700 pb-2">
-                                ${unit.name} 
-                                <span class="text-sm font-normal text-slate-400">
-                                    (Média: ${unit.average} pts)
-                                </span>
-                            </h3>
-                            
-                            ${unit.members.map(member => `
-                                <div class="bg-slate-900 rounded-xl border border-slate-800 p-4 shadow-sm">
-                                    <div class="flex justify-between items-start mb-3">
-                                        <div>
-                                            <div class="font-bold text-white">${Sanitizer.normalizeName(member.name)}</div>
-                                            <div class="text-sm text-slate-400">
-                                                ${member.evaluated
-                ? `${member.points} pontos • ${member.daysEvaluated} dia(s) avaliado(s)`
-                : '<span class="text-yellow-400">Não avaliado</span>'
-            }
-                                            </div>
-                                        </div>
-                                        ${member.photo_url || member.image
-                ? `<img src="${member.photo_url || member.image}" 
-                                                   class="w-12 h-12 rounded-full object-cover border border-slate-700" 
-                                                   alt="${member.name}">`
-                : ''
-            }
-                                    </div>
-                                </div>
-                            `).join('')}
-                        </div>
+
+                <!-- Tabs -->
+                <div class="flex bg-slate-900 p-1 rounded-xl mb-5 gap-1 overflow-x-auto">
+                    ${[
+                        { id: 'individual', icon: 'user', label: 'Individual' },
+                        { id: 'club',       icon: 'bar-chart-2', label: 'Clube' },
+                        { id: 'ranking',    icon: 'trophy', label: 'Ranking' },
+                        { id: 'alerts',     icon: 'alert-triangle', label: 'Alertas' },
+                    ].map(t => `
+                        <button onclick="App.setReportTab('${t.id}')" id="rpt-tab-${t.id}"
+                                class="flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg font-bold text-xs transition-all whitespace-nowrap
+                                       ${this._activeReportTab === t.id ? 'bg-brand-gold text-slate-900 shadow-lg' : 'text-slate-400 hover:text-white'}">
+                            <i data-lucide="${t.icon}" class="w-3.5 h-3.5"></i>${t.label}
+                        </button>
                     `).join('')}
                 </div>
-                
-                <div class="fixed bottom-0 left-0 right-0 p-4 bg-slate-950/95 backdrop-blur 
-                            border-t border-slate-800 flex flex-col gap-2 z-50">
-                    <div class="grid grid-cols-2 gap-2">
-                        <button onclick="window.print()" 
-                                class="py-3 rounded-xl font-bold text-white 
-                                       bg-brand-navy hover:bg-brand-navy/90 
-                                       flex items-center justify-center gap-2 shadow-lg text-sm">
-                            <i data-lucide="file-text" class="w-4 h-4"></i> 
-                            PDF
-                        </button>
-                        
-                        <button onclick="App.exportToCSV()" 
-                                class="py-3 rounded-xl font-bold text-emerald-400 
-                                       bg-emerald-900/20 border border-emerald-900/30 hover:bg-emerald-900/30 
-                                       flex items-center justify-center gap-2 text-sm">
-                            <i data-lucide="table" class="w-4 h-4"></i> 
-                            CSV / Excel
-                        </button>
-                    </div>
-                    
-                    <a href="${Utils.generateWhatsAppLink(generateWhatsAppText())}" 
-                       target="_blank" 
-                       class="w-full py-3 rounded-xl font-bold text-green-400 
-                              bg-green-900/20 border border-green-900/30 hover:bg-green-900/30 
-                              flex items-center justify-center gap-2 no-underline text-sm">
-                        <i data-lucide="message-circle" class="w-4 h-4"></i> 
-                        WhatsApp
-                    </a>
-                    
-                    <button onclick="App.navigate('dashboard')" 
-                            class="w-full py-2 rounded-xl font-bold text-slate-400 
-                                   bg-slate-800 hover:bg-slate-700 
-                                   flex items-center justify-center gap-2 text-sm">
-                        Voltar
-                    </button>
-                </div>
+
+                <!-- Tab Content -->
+                <div id="rpt-content"></div>
             </div>
         `;
 
         this.mountPoint.innerHTML = html;
         if (typeof lucide !== 'undefined') lucide.createIcons();
-        this.toggleNavigation(false);
+        this.toggleNavigation(true);
+        await this.renderActiveReportTab();
     },
 
+    setReportTab(tab) {
+        this._activeReportTab = tab;
+        // Update tab styles
+        ['individual','club','ranking','alerts'].forEach(t => {
+            const btn = document.getElementById(`rpt-tab-${t}`);
+            if (!btn) return;
+            if (t === tab) {
+                btn.className = btn.className.replace(/text-slate-400 hover:text-white/, 'bg-brand-gold text-slate-900 shadow-lg');
+            } else {
+                btn.className = btn.className.replace(/bg-brand-gold text-slate-900 shadow-lg/, 'text-slate-400 hover:text-white');
+            }
+        });
+        this.renderActiveReportTab();
+    },
+
+    async renderActiveReportTab() {
+        const container = document.getElementById('rpt-content');
+        if (!container) return;
+        container.innerHTML = `<div class="flex justify-center py-12 text-slate-500">
+            <i data-lucide="loader" class="w-8 h-8 animate-spin"></i></div>`;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+
+        const { start, end } = this._reportRange;
+        Loading.show('Carregando dados...');
+        await Store.fetchScoresRange(start, end);
+        Loading.hide();
+
+        switch (this._activeReportTab) {
+            case 'individual': await this._renderIndividualTab(container, start, end); break;
+            case 'club':       await this._renderClubTab(container, start, end);       break;
+            case 'ranking':    await this._renderRankingTab(container, start, end);    break;
+            case 'alerts':     await this._renderAlertsTab(container, start, end);     break;
+        }
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    },
+
+    // ── Tab 1: Individual ────────────────────────────────────────────────────
+    async _renderIndividualTab(container, start, end) {
+        const members = await Store.getMembers();
+        const units   = await Store.getUnits();
+
+        container.innerHTML = `
+            <div class="space-y-4">
+                <!-- Search -->
+                <div class="relative">
+                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500"></i>
+                    <input type="text" id="rpt-member-search" placeholder="Buscar desbravador..."
+                           oninput="App._filterMemberSearch(this.value)"
+                           class="w-full pl-9 pr-3 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-brand-gold">
+                </div>
+                <!-- Member list -->
+                <div id="rpt-member-list" class="space-y-2 max-h-64 overflow-y-auto"></div>
+                <!-- Individual report -->
+                <div id="rpt-individual-report"></div>
+            </div>
+        `;
+        this._allMembersForSearch = members.map(m => ({
+            ...m, unitName: units.find(u => u.id === m.unitId)?.name || '—'
+        }));
+        this._filterMemberSearch('');
+    },
+
+    _filterMemberSearch(query) {
+        const list = document.getElementById('rpt-member-list');
+        if (!list) return;
+        const filtered = query.length < 1 
+            ? this._allMembersForSearch 
+            : this._allMembersForSearch.filter(m => 
+                Sanitizer.normalizeName(m.name).toLowerCase().includes(query.toLowerCase()));
+
+        if (filtered.length === 0) {
+            list.innerHTML = `<p class="text-center text-slate-500 text-sm py-4">Nenhum resultado</p>`;
+            return;
+        }
+        list.innerHTML = filtered.slice(0, 20).map(m => `
+            <div onclick="App._showMemberReport('${m.id}')"
+                 class="flex items-center gap-3 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-xl p-3 cursor-pointer transition-colors">
+                <div class="w-8 h-8 rounded-full bg-brand-navy/30 border border-brand-gold/30 flex items-center justify-center text-xs font-black text-brand-gold">
+                    ${Sanitizer.normalizeName(m.name).split(' ').map(n=>n[0]).slice(0,2).join('')}
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="font-bold text-white text-sm truncate">${Sanitizer.normalizeName(m.name)}</p>
+                    <p class="text-[10px] text-slate-500 uppercase font-bold">${m.unitName}</p>
+                </div>
+                <i data-lucide="chevron-right" class="w-4 h-4 text-slate-600"></i>
+            </div>
+        `).join('');
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    },
+
+    async _showMemberReport(memberId) {
+        const reportEl = document.getElementById('rpt-individual-report');
+        if (!reportEl) return;
+
+        const members  = await Store.getMembers();
+        const units    = await Store.getUnits();
+        const allScores = await Store.getScores();
+        const member   = members.find(m => m.id === memberId);
+        if (!member) return;
+        const unit = units.find(u => u.id === member.unitId);
+
+        const { start, end } = this._reportRange;
+
+        // Prayer days from data
+        const prayerDaysData = [];
+        let totalDays = 0, presentDays = 0, absentDays = 0, totalPoints = 0;
+
+        for (let d = new Date(start + 'T12:00:00'); d <= new Date(end + 'T12:00:00'); d.setDate(d.getDate() + 1)) {
+            const dateKey = d.toISOString().split('T')[0];
+            const dayScores = allScores[dateKey] || {};
+            const score = dayScores[memberId];
+            if (!score) continue;
+            totalDays++;
+            if (score.isAbsent) {
+                absentDays++;
+            } else {
+                presentDays++;
+                totalPoints += Utils.countTotal(score);
+            }
+            // Prayer
+            if (score.items && score.items['prayer_10days']) {
+                prayerDaysData.push({ dateKey, weekday: WEEK_DAYS[d.getDay()], status: score.items['prayer_10days'] });
+            }
+        }
+
+        const presencePct = totalDays > 0 ? Math.round((presentDays / totalDays) * 100) : 0;
+        const barColor = presencePct >= 80 ? 'bg-green-500' : presencePct >= 50 ? 'bg-yellow-500' : 'bg-red-500';
+        const pctColor = presencePct >= 80 ? 'text-green-400' : presencePct >= 50 ? 'text-yellow-400' : 'text-red-400';
+
+        const prayerSection = prayerDaysData.length === 0 ? `
+            <p class="text-slate-500 text-sm text-center py-4 italic">Nenhum registro de oração no período</p>
+        ` : prayerDaysData.map(day => {
+            const info = PRAYER_STATUS_MAP[day.status] || { label: day.status, emoji: '❓', color: 'text-slate-400', bg: 'bg-slate-800 border-slate-700' };
+            return `
+            <div class="flex items-center justify-between border ${info.bg} rounded-xl px-4 py-2.5">
+                <div>
+                    <p class="text-xs font-black text-slate-300">${Utils.formatDate(day.dateKey)}</p>
+                    <p class="text-[10px] text-slate-500 uppercase font-bold">${day.weekday}</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-lg">${info.emoji}</span>
+                    <span class="text-xs font-bold ${info.color}">${info.label}</span>
+                </div>
+            </div>`;
+        }).join('');
+
+        reportEl.innerHTML = `
+            <div class="mt-4 space-y-4 border-t border-slate-800 pt-4">
+                <!-- Header -->
+                <div class="bg-slate-900 rounded-2xl border border-slate-700 p-4">
+                    <div class="flex items-center gap-3 mb-3">
+                        <div class="w-12 h-12 rounded-full bg-brand-navy/30 border-2 border-brand-gold/40 flex items-center justify-center text-brand-gold font-black text-lg">
+                            ${Sanitizer.normalizeName(member.name).split(' ').map(n=>n[0]).slice(0,2).join('')}
+                        </div>
+                        <div>
+                            <h3 class="font-black text-white text-base">${Sanitizer.normalizeName(member.name)}</h3>
+                            <p class="text-xs text-slate-500 uppercase font-bold tracking-widest">${unit?.name || '—'} · ${member.role || 'Desbravador'}</p>
+                        </div>
+                    </div>
+                    <!-- Stats -->
+                    <div class="grid grid-cols-3 gap-2 mb-3">
+                        <div class="bg-slate-950 rounded-xl p-2.5 text-center border border-slate-800">
+                            <p class="text-[10px] text-slate-500 uppercase font-bold">Presenças</p>
+                            <p class="text-xl font-black text-green-400">${presentDays}</p>
+                        </div>
+                        <div class="bg-slate-950 rounded-xl p-2.5 text-center border border-slate-800">
+                            <p class="text-[10px] text-slate-500 uppercase font-bold">Ausências</p>
+                            <p class="text-xl font-black text-red-400">${absentDays}</p>
+                        </div>
+                        <div class="bg-slate-950 rounded-xl p-2.5 text-center border border-slate-800">
+                            <p class="text-[10px] text-slate-500 uppercase font-bold">Pontos</p>
+                            <p class="text-xl font-black text-brand-gold">${totalPoints}</p>
+                        </div>
+                    </div>
+                    <!-- Presence bar -->
+                    <div class="flex items-center gap-2">
+                        <div class="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden">
+                            <div class="${barColor} h-2 rounded-full transition-all" style="width:${presencePct}%"></div>
+                        </div>
+                        <span class="text-xs font-black ${pctColor}">${presencePct}% presença</span>
+                    </div>
+                </div>
+
+                <!-- 10 Dias de Oração -->
+                ${prayerDaysData.length > 0 ? `
+                <div>
+                    <div class="flex items-center gap-2 mb-3">
+                        <i data-lucide="star" class="w-4 h-4 text-brand-gold"></i>
+                        <h4 class="font-black text-white text-sm uppercase tracking-wider">10 Dias de Oração</h4>
+                        <span class="text-xs text-slate-500 font-bold">(${prayerDaysData.length} registro${prayerDaysData.length !== 1 ? 's' : ''})</span>
+                    </div>
+                    <div class="space-y-2">${prayerSection}</div>
+                </div>
+                ` : `
+                <div class="bg-slate-900 rounded-xl border border-slate-800 p-4 text-center">
+                    <i data-lucide="star" class="w-8 h-8 text-slate-700 mx-auto mb-2"></i>
+                    <p class="text-slate-500 text-sm">Sem registros de oração no período</p>
+                </div>
+                `}
+            </div>
+        `;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        reportEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    },
+
+    // ── Tab 2: Club Dashboard ────────────────────────────────────────────────
+    async _renderClubTab(container, start, end) {
+        const members  = await Store.getMembers();
+        const units    = await Store.getUnits();
+        const allScores = await Store.getScores();
+
+        // Role counts
+        const roleCounts = members.reduce((acc, m) => {
+            const r = (m.role || 'DESBRAVADOR').toLowerCase();
+            acc[r] = (acc[r] || 0) + 1;
+            return acc;
+        }, {});
+
+        // Monthly points accumulation
+        const monthlyPoints = {};
+        for (let d = new Date(start + 'T12:00:00'); d <= new Date(end + 'T12:00:00'); d.setDate(d.getDate() + 1)) {
+            const dateKey = d.toISOString().split('T')[0];
+            const dayScores = allScores[dateKey] || {};
+            if (Object.keys(dayScores).length === 0) continue;
+            const month = dateKey.substring(0, 7); // YYYY-MM
+            if (!monthlyPoints[month]) monthlyPoints[month] = 0;
+            Object.values(dayScores).forEach(s => {
+                if (!s.isAbsent) monthlyPoints[month] += Utils.countTotal(s);
+            });
+        }
+
+        // Presence over period
+        let totalEvaluated = 0, totalPresent = 0, totalEvaluationDays = 0;
+        for (let d = new Date(start + 'T12:00:00'); d <= new Date(end + 'T12:00:00'); d.setDate(d.getDate() + 1)) {
+            const dateKey = d.toISOString().split('T')[0];
+            const dayScores = allScores[dateKey] || {};
+            if (Object.keys(dayScores).length === 0) continue;
+            totalEvaluationDays++;
+            Object.values(dayScores).forEach(s => {
+                totalEvaluated++;
+                if (!s.isAbsent) totalPresent++;
+            });
+        }
+        const avgPresencePct = totalEvaluated > 0 ? Math.round((totalPresent / totalEvaluated) * 100) : 0;
+        const barColor2 = avgPresencePct >= 80 ? 'bg-green-500' : avgPresencePct >= 50 ? 'bg-yellow-500' : 'bg-red-500';
+        const pctColor2 = avgPresencePct >= 80 ? 'text-green-400' : avgPresencePct >= 50 ? 'text-yellow-400' : 'text-red-400';
+
+        const roleLabels = {
+            'desbravador': 'Desbravadores',
+            'conselheiro': 'Conselheiros',
+            'instrutor':   'Instrutores',
+            'diretor_de_clube': 'Diretores',
+            'super_admin': 'Administradores',
+        };
+        const roleIcons = {
+            'desbravador': 'users', 'conselheiro': 'shield', 'instrutor': 'book-open',
+            'diretor_de_clube': 'crown', 'super_admin': 'star'
+        };
+
+        const monthKeys = Object.keys(monthlyPoints).sort();
+        const monthLabels = monthKeys.map(m => {
+            const [y, mo] = m.split('-');
+            return new Date(+y, +mo - 1, 1).toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
+        });
+        const maxPts = Math.max(...Object.values(monthlyPoints), 1);
+
+        container.innerHTML = `
+            <div class="space-y-4">
+                <!-- Members by role -->
+                <div class="bg-slate-900 rounded-2xl border border-slate-700 p-4">
+                    <div class="flex items-center gap-2 mb-3">
+                        <i data-lucide="users" class="w-4 h-4 text-brand-gold"></i>
+                        <h4 class="font-black text-white text-sm uppercase tracking-wider">Membros Ativos</h4>
+                        <span class="ml-auto text-brand-gold font-black">${members.length} total</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        ${Object.entries(roleCounts).map(([role, count]) => `
+                            <div class="bg-slate-950 rounded-xl p-3 border border-slate-800 flex items-center gap-2">
+                                <i data-lucide="${roleIcons[role] || 'user'}" class="w-4 h-4 text-brand-gold flex-shrink-0"></i>
+                                <div>
+                                    <p class="text-white font-black text-lg leading-none">${count}</p>
+                                    <p class="text-[10px] text-slate-500 uppercase font-bold">${roleLabels[role] || role}</p>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <!-- Presence -->
+                <div class="bg-slate-900 rounded-2xl border border-slate-700 p-4">
+                    <div class="flex items-center gap-2 mb-3">
+                        <i data-lucide="calendar-check" class="w-4 h-4 text-brand-gold"></i>
+                        <h4 class="font-black text-white text-sm uppercase tracking-wider">Presença Média</h4>
+                    </div>
+                    <p class="text-[10px] text-slate-500 mb-2">${totalEvaluationDays} dia(s) com avaliação no período</p>
+                    <div class="flex items-center gap-3">
+                        <div class="flex-1 h-3 bg-slate-800 rounded-full overflow-hidden">
+                            <div class="${barColor2} h-3 rounded-full" style="width:${avgPresencePct}%"></div>
+                        </div>
+                        <span class="font-black text-lg ${pctColor2}">${avgPresencePct}%</span>
+                    </div>
+                    <div class="flex gap-4 mt-2 text-xs text-slate-500">
+                        <span>✅ ${totalPresent} presenças</span>
+                        <span>❌ ${totalEvaluated - totalPresent} ausências</span>
+                    </div>
+                </div>
+
+                <!-- Monthly points chart -->
+                ${monthKeys.length === 0 ? '' : `
+                <div class="bg-slate-900 rounded-2xl border border-slate-700 p-4">
+                    <div class="flex items-center gap-2 mb-4">
+                        <i data-lucide="bar-chart-2" class="w-4 h-4 text-brand-gold"></i>
+                        <h4 class="font-black text-white text-sm uppercase tracking-wider">Pontos por Mês</h4>
+                    </div>
+                    <div class="flex items-end gap-2 h-32">
+                        ${monthKeys.map((m, i) => {
+                            const pct = Math.round((monthlyPoints[m] / maxPts) * 100);
+                            return `
+                            <div class="flex-1 flex flex-col items-center gap-1">
+                                <span class="text-[9px] text-slate-400 font-bold">${monthlyPoints[m]}</span>
+                                <div class="w-full bg-brand-gold/20 rounded-t-lg overflow-hidden" style="height:96px">
+                                    <div class="bg-brand-gold rounded-t-lg w-full transition-all" style="height:${pct}%;margin-top:${100-pct}%"></div>
+                                </div>
+                                <span class="text-[9px] text-slate-500 text-center">${monthLabels[i]}</span>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                </div>
+                `}
+            </div>
+        `;
+    },
+
+    // ── Tab 3: Unit Ranking ──────────────────────────────────────────────────
+    async _renderRankingTab(container, start, end) {
+        const units    = await Store.getUnits();
+        const members  = await Store.getMembers();
+        const allScores = await Store.getScores();
+
+        const unitStats = units.map(unit => {
+            const unitMembers = members.filter(m => m.unitId === unit.id);
+            let totalPoints = 0, totalPresent = 0, totalEvals = 0;
+
+            unitMembers.forEach(member => {
+                for (let d = new Date(start + 'T12:00:00'); d <= new Date(end + 'T12:00:00'); d.setDate(d.getDate() + 1)) {
+                    const dateKey = d.toISOString().split('T')[0];
+                    const score = (allScores[dateKey] || {})[member.id];
+                    if (!score) continue;
+                    totalEvals++;
+                    if (!score.isAbsent) {
+                        totalPresent++;
+                        totalPoints += Utils.countTotal(score);
+                    }
+                }
+            });
+
+            const avgPts = unitMembers.length > 0 ? Math.round(totalPoints / (unitMembers.length || 1)) : 0;
+            const presencePct = totalEvals > 0 ? Math.round((totalPresent / totalEvals) * 100) : 0;
+            return { ...unit, avgPts, totalPoints, presencePct, memberCount: unitMembers.length };
+        }).filter(u => u.memberCount > 0).sort((a, b) => b.avgPts - a.avgPts);
+
+        const MEDALS = ['🥇','🥈','🥉'];
+
+        container.innerHTML = `
+            <div class="space-y-3">
+                ${unitStats.length === 0 ? '<p class="text-center text-slate-500 py-8">Sem dados no período</p>' :
+                unitStats.map((unit, i) => {
+                    const medal = MEDALS[i] || `#${i+1}`;
+                    const barPct = unitStats[0].avgPts > 0 ? Math.round((unit.avgPts / unitStats[0].avgPts) * 100) : 0;
+                    const presColor = unit.presencePct >= 80 ? 'text-green-400' : unit.presencePct >= 50 ? 'text-yellow-400' : 'text-red-400';
+                    return `
+                    <div class="bg-slate-900 rounded-2xl border ${i === 0 ? 'border-brand-gold/40' : 'border-slate-700'} p-4">
+                        <div class="flex items-center gap-3 mb-3">
+                            <span class="text-2xl">${medal}</span>
+                            <div class="flex-1">
+                                <h4 class="font-black text-white">${unit.name}</h4>
+                                <p class="text-[10px] text-slate-500 uppercase font-bold">${unit.memberCount} membros</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-brand-gold font-black text-xl">${unit.avgPts}</p>
+                                <p class="text-[10px] text-slate-500">pts/membro</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 mb-2">
+                            <div class="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                                <div class="bg-brand-gold h-1.5 rounded-full" style="width:${barPct}%"></div>
+                            </div>
+                            <span class="text-[10px] text-slate-400">${unit.totalPoints} pts total</span>
+                        </div>
+                        <div class="text-xs ${presColor} font-bold">📅 ${unit.presencePct}% de presença</div>
+                    </div>`;
+                }).join('')}
+            </div>
+        `;
+    },
+
+    // ── Tab 4: Dropout Alerts ────────────────────────────────────────────────
+    async _renderAlertsTab(container, start, end) {
+        const members   = await Store.getMembers();
+        const units     = await Store.getUnits();
+        const allScores = await Store.getScores();
+
+        const alerts = [];
+
+        members.forEach(member => {
+            let consecutiveAbsences = 0;
+            let maxConsecutive = 0;
+            let totalEvals = 0, totalAbsent = 0;
+            const datesEvaluated = [];
+
+            for (let d = new Date(start + 'T12:00:00'); d <= new Date(end + 'T12:00:00'); d.setDate(d.getDate() + 1)) {
+                const dateKey = d.toISOString().split('T')[0];
+                const score   = (allScores[dateKey] || {})[member.id];
+                if (!score) continue;
+                datesEvaluated.push(dateKey);
+                totalEvals++;
+                if (score.isAbsent) {
+                    totalAbsent++;
+                    consecutiveAbsences++;
+                    maxConsecutive = Math.max(maxConsecutive, consecutiveAbsences);
+                } else {
+                    consecutiveAbsences = 0;
+                }
+            }
+
+            if (totalEvals === 0) return;
+            const absencePct = Math.round((totalAbsent / totalEvals) * 100);
+            const isAlert = maxConsecutive >= 3 || absencePct >= 50;
+
+            if (isAlert) {
+                const unit = units.find(u => u.id === member.unitId);
+                alerts.push({ member, unit, maxConsecutive, absencePct, totalEvals, totalAbsent });
+            }
+        });
+
+        alerts.sort((a, b) => b.maxConsecutive - a.maxConsecutive || b.absencePct - a.absencePct);
+
+        const whatsappText = alerts.length === 0 ? '' :
+            `*⚠️ ALERTA DE DESISTÊNCIA*\n\n` +
+            alerts.map(a =>
+                `• ${Sanitizer.normalizeName(a.member.name)} (${a.unit?.name || '—'}): ${a.absencePct}% de ausências`
+            ).join('\n');
+
+        container.innerHTML = `
+            <div class="space-y-4">
+                ${alerts.length === 0 ? `
+                    <div class="bg-green-500/10 border border-green-500/20 rounded-2xl p-6 text-center">
+                        <span class="text-4xl">🎉</span>
+                        <h4 class="font-black text-green-400 mt-2">Nenhum alerta!</h4>
+                        <p class="text-slate-500 text-sm">Todos os desbravadores estão com presença saudável no período.</p>
+                    </div>
+                ` : `
+                    <div class="bg-orange-500/10 border border-orange-500/20 rounded-xl p-3 flex gap-2 items-start">
+                        <i data-lucide="alert-triangle" class="w-4 h-4 text-orange-400 flex-shrink-0 mt-0.5"></i>
+                        <p class="text-xs text-orange-200"><strong>${alerts.length} alerta(s)</strong> — membros com 3+ ausências consecutivas OU mais de 50% de ausências no período.</p>
+                    </div>
+
+                    <div class="space-y-3">
+                        ${alerts.map(a => {
+                            const danger = a.maxConsecutive >= 5 || a.absencePct >= 70;
+                            const borderColor = danger ? 'border-red-500/40' : 'border-orange-500/30';
+                            const tagColor = danger ? 'bg-red-500/20 text-red-400' : 'bg-orange-500/20 text-orange-400';
+                            return `
+                            <div class="bg-slate-900 rounded-2xl border ${borderColor} p-4">
+                                <div class="flex items-center gap-3 mb-2">
+                                    <div class="w-9 h-9 rounded-full bg-red-900/30 border border-red-500/30 flex items-center justify-center text-xs font-black text-red-400">
+                                        ${Sanitizer.normalizeName(a.member.name).split(' ').map(n=>n[0]).slice(0,2).join('')}
+                                    </div>
+                                    <div class="flex-1">
+                                        <h5 class="font-bold text-white text-sm">${Sanitizer.normalizeName(a.member.name)}</h5>
+                                        <p class="text-[10px] text-slate-500 uppercase font-bold">${a.unit?.name || '—'}</p>
+                                    </div>
+                                    <span class="text-xs font-black px-2 py-1 rounded-lg ${tagColor}">
+                                        ${a.absencePct}% ausente
+                                    </span>
+                                </div>
+                                <div class="flex gap-3 text-xs text-slate-400">
+                                    ${a.maxConsecutive >= 3 ? `<span>🔴 ${a.maxConsecutive} ausências seguidas</span>` : ''}
+                                    <span>📊 ${a.totalAbsent}/${a.totalEvals} dias ausente</span>
+                                </div>
+                            </div>`;
+                        }).join('')}
+                    </div>
+
+                    ${whatsappText ? `
+                    <a href="${Utils.generateWhatsAppLink(whatsappText)}" target="_blank"
+                       class="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-green-900/20 border border-green-900/30 text-green-400 font-bold text-sm hover:bg-green-900/30 transition-colors no-underline">
+                        <i data-lucide="message-circle" class="w-4 h-4"></i>
+                        Compartilhar via WhatsApp
+                    </a>
+                    ` : ''}
+                `}
+            </div>
+        `;
+    },
+
+    // ── Date filter ─────────────────────────────────────────────────────────
     applyReportDateFilter() {
-        const startDate = document.getElementById('report-start-date')?.value;
-        const endDate = document.getElementById('report-end-date')?.value;
+        const start = document.getElementById('rpt-start')?.value;
+        const end   = document.getElementById('rpt-end')?.value;
+        if (!start || !end) { Toast.show('Selecione ambas as datas', 'error'); return; }
+        if (new Date(start) > new Date(end)) { Toast.show('Data inicial maior que final', 'error'); return; }
+        this._reportRange = { start, end };
+        this.renderActiveReportTab();
+    },
 
-        if (!startDate || !endDate) {
-            Toast.show('Por favor, selecione ambas as datas', 'error');
-            return;
+    // ── Legacy exports (kept for compatibility) ──────────────────────────────
+    async exportToCSV() {
+        const { start, end } = this._reportRange || { start: Utils.getTodayKey(), end: Utils.getTodayKey() };
+        await Store.fetchScoresRange(start, end);
+
+        const units    = await Store.getUnits();
+        const members  = await Store.getMembers();
+        const allScores = await Store.getScores();
+
+        const headers = ['Desbravador','Unidade','Função','Data','Pontos','Status'];
+        const rows = [headers.join(';')];
+
+        for (let d = new Date(start + 'T12:00:00'); d <= new Date(end + 'T12:00:00'); d.setDate(d.getDate() + 1)) {
+            const dateKey = d.toISOString().split('T')[0];
+            const dayScores = allScores[dateKey] || {};
+            for (const member of members) {
+                const score = dayScores[member.id];
+                if (!score) continue;
+                const unit   = units.find(u => u.id === member.unitId);
+                const points = score.isAbsent ? 0 : Utils.countTotal(score);
+                rows.push([
+                    `"${Sanitizer.normalizeName(member.name)}"`,
+                    `"${unit?.name || 'N/A'}"`,
+                    `"${member.role || 'DESBRAVADOR'}"`,
+                    Utils.formatDate(dateKey),
+                    points,
+                    score.isAbsent ? 'Ausente' : 'Presente'
+                ].join(';'));
+            }
         }
 
-        if (new Date(startDate) > new Date(endDate)) {
-            Toast.show('Data inicial não pode ser maior que data final', 'error');
-            return;
-        }
-
-        // Recarregar relatório com novo período
-        this.renderReport(startDate, endDate);
-    }
+        if (rows.length <= 1) { Toast.show('Nenhum dado no período', 'error'); return; }
+        const blob = new Blob(['\uFEFF' + rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        const a    = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `relatorio_${start}_${end}.csv` });
+        a.click();
+        Toast.show('CSV exportado!', 'success');
+    },
 };

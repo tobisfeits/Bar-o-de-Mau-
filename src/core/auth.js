@@ -236,7 +236,7 @@ export const RBAC = {
      */
     canViewReports() {
         if (!this.currentUser) return false;
-        return !this.isAuxiliar();
+        return this.isSuperAdmin();
     },
 
     /**
@@ -245,7 +245,7 @@ export const RBAC = {
      */
     canViewRanking() {
         if (!this.currentUser) return false;
-        return !this.isAuxiliar();
+        return this.isSuperAdmin();
     },
 
     /**
