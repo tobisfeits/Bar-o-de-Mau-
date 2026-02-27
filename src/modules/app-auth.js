@@ -32,54 +32,6 @@ export const AuthMethods = {
 
         this._loginUsers = users;
 
-        // Check biometric availability
-        const hasBiometric = BiometricAuth.isAvailable() && BiometricAuth.hasCredential();
-        const storedCred = hasBiometric ? BiometricAuth.getStoredCredential() : null;
-
-        const html = `
-            <div class="min-h-screen flex items-center justify-center p-4 bg-[url('/fotos/barao-logo.png')] bg-cover bg-center bg-no-repeat relative">
-                <div class="absolute inset-0 bg-slate-900/90 backdrop-blur-sm"></div>
-                
-                <div class="relative w-full max-w-md bg-slate-900/80 border border-slate-700 rounded-2xl shadow-2xl p-8 backdrop-blur animate-fade-in">
-                    <div class="flex flex-col items-center mb-8">
-                        <img src="logo_barao_maua.png" alt="Logo" class="w-32 h-32 mb-4 drop-shadow-2xl animate-float">
-                        <h1 class="text-3xl font-black text-center text-white uppercase tracking-wider">
-                            Barão de Mauá
-                        </h1>
-                        <p class="text-brand-gold font-bold text-sm tracking-widest uppercase mt-2">
-                            Sistema de Pontuação
-                        </p>
-                    </div>
-
-                    ${hasBiometric ? `
-                    <!-- Biometric Quick Login -->
-                    <div class="mb-6">
-                        <button onclick="App.biometricLogin()"
-                                class="w-full py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500
-                                       text-white font-black uppercase tracking-wider rounded-xl shadow-lg shadow-emerald-600/20 
-                                       active:scale-95 transition-all flex items-center justify-center gap-3">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M12 10a2 2 0 0 0-2 2c0 1.02.1 2.51.412 4.419C10.694 18.186 11.317 20 12 20c.683 0 1.306-1.814 1.588-3.581C13.9 14.51 14 13.02 14 12a2 2 0 0 0-2-2z"/>
-                                <path d="M8 4a4 4 0 0 1 8 0v2a4 4 0 0 1-1.318 2.974c-.878.813-1.682 1.826-1.682 3.026"/>
-                                <path d="M6.2 6c.085-.315.2-.622.346-.918A6 6 0 0 1 18 6v2c0 1.67-.268 3.19-.682 4.526"/>
-                                <path d="M3.6 5.2A10 10 0 0 1 12 2c3.2 0 6.05 1.5 7.896 3.83"/>
-                                <path d="M2 12c0-1.49.183-2.94.53-4.32"/>
-                            </svg>
-                            Entrar com Biometria
-                        </button>
-                        <p class="text-center text-xs text-slate-500 mt-2">
-                            <i data-lucide="user" class="w-3 h-3 inline"></i>
-                            ${storedCred?.userName || 'Registrado'}
-                        </p>
-                        
-                        <div class="flex items-center gap-3 my-5">
-                            <div class="flex-1 h-px bg-slate-700"></div>
-                            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">ou entre com senha</span>
-                            <div class="flex-1 h-px bg-slate-700"></div>
-                        </div>
-                    </div>
-                    ` : ''}
-
                     <div class="space-y-4">
                         <!-- Custom Dropdown -->
                         <div class="space-y-2">
@@ -163,11 +115,6 @@ export const AuthMethods = {
                          <a href="#" onclick="alert('Procure o diretor do clube para redefinir sua senha.')" class="text-slate-500 hover:text-brand-gold transition-colors">
                             Esqueci minha senha
                         </a>
-                        ${hasBiometric ? `
-                        <a href="#" onclick="App.removeBiometric()" class="text-red-400/60 hover:text-red-400 transition-colors text-xs">
-                            Remover biometria
-                        </a>
-                        ` : ''}
                     </div>
                 </div>
             </div>
@@ -433,8 +380,8 @@ export const AuthMethods = {
                 return;
             }
 
-            // Prompt biometric setup (non-blocking)
-            setTimeout(() => this.promptBiometricSetup(user), 1500);
+            // Prompt biometric setup (deactivated)
+            // setTimeout(() => this.promptBiometricSetup(user), 1500);
 
             // Navegar para dashboard
             this.navigate('dashboard');

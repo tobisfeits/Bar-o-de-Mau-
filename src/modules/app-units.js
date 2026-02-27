@@ -138,7 +138,7 @@ export const UnitMethods = {
                     const photoHtml = PhotoManager.renderPhoto(member, 48);
 
                     return `
-                                <div onclick="App.renderScoring('${member.id}')" 
+                                <div onclick="App.navigate('scoring', { memberId: '${member.id}' })" 
                                      class="group bg-slate-900 p-4 rounded-xl border border-slate-800 shadow-sm active:scale-[0.98] transition-all hover:bg-slate-800 hover:border-slate-700 cursor-pointer relative overflow-hidden">
                                      
                                     <div class="flex items-center justify-between">

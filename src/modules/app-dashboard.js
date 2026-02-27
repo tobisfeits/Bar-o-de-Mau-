@@ -133,11 +133,6 @@ export const DashboardMethods = {
                         
                         ${RBAC.isSuperAdmin() ? `
                             <div class="flex gap-2">
-                                <button onclick="App.renderReport()" 
-                                        class="bg-brand-navy text-brand-gold p-2 rounded-xl hover:bg-slate-800 transition-colors shadow-lg border border-slate-700 flex items-center justify-center"
-                                        title="Relatórios Detalhados">
-                                    <i data-lucide="bar-chart-2" class="w-6 h-6"></i>
-                                </button>
                                 <a href="admin-deleted-members.html" 
                                    class="bg-slate-800 text-red-400 p-2 rounded-xl hover:bg-slate-700 transition-colors shadow-lg border border-slate-700 flex items-center justify-center"
                                    title="Lixeira de Membros">
