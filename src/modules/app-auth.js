@@ -32,6 +32,21 @@ export const AuthMethods = {
 
         this._loginUsers = users;
 
+        const html = `
+            <div class="min-h-screen flex items-center justify-center p-4 bg-[url('/fotos/barao-logo.png')] bg-cover bg-center bg-no-repeat relative">
+                <div class="absolute inset-0 bg-slate-900/90 backdrop-blur-sm"></div>
+                
+                <div class="relative w-full max-w-md bg-slate-900/80 border border-slate-700 rounded-2xl shadow-2xl p-8 backdrop-blur animate-fade-in">
+                    <div class="flex flex-col items-center mb-8">
+                        <img src="logo_barao_maua.png" alt="Logo" class="w-32 h-32 mb-4 drop-shadow-2xl animate-float">
+                        <h1 class="text-3xl font-black text-center text-white uppercase tracking-wider">
+                            Barão de Mauá
+                        </h1>
+                        <p class="text-brand-gold font-bold text-sm tracking-widest uppercase mt-2">
+                            Sistema de Pontuação
+                        </p>
+                    </div>
+
                     <div class="space-y-4">
                         <!-- Custom Dropdown -->
                         <div class="space-y-2">
