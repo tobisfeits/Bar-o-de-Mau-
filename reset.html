@@ -4,84 +4,82 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Resetar App - Barão de Mauá</title>
+    <title>Atualizar App - Barão de Mauá</title>
     <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            background-color: #0f172a;
+            background: #0f172a;
             color: white;
             font-family: system-ui, -apple-system, sans-serif;
+            min-height: 100vh;
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-            min-height: 100vh;
-            margin: 0;
             padding: 20px;
-            text-align: center;
         }
-
         .card {
             background: #1e293b;
-            padding: 30px;
-            border-radius: 16px;
-            max-width: 400px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
-        }
-
-        h1 {
-            margin-top: 0;
-            color: #f43f5e;
-        }
-
-        p {
-            color: #94a3b8;
-            line-height: 1.6;
-        }
-
-        button {
-            background: #f43f5e;
-            color: white;
-            border: none;
-            padding: 16px 32px;
-            border-radius: 12px;
-            font-size: 18px;
-            font-weight: bold;
-            cursor: pointer;
-            margin-top: 20px;
+            border: 1px solid #334155;
+            border-radius: 20px;
+            padding: 32px 28px;
+            max-width: 420px;
             width: 100%;
-            transition: transform 0.2s;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
         }
-
-        button:active {
-            transform: scale(0.95);
+        .icon { font-size: 48px; margin-bottom: 16px; }
+        h1 { font-size: 22px; font-weight: 900; color: #f43f5e; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; }
+        .subtitle { color: #94a3b8; font-size: 14px; line-height: 1.6; margin-bottom: 24px; }
+        .version-note { background: #0f172a; border: 1px solid #1e3a8a; border-radius: 10px; padding: 12px; font-size: 12px; color: #60a5fa; margin-bottom: 20px; }
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 16px;
+            border-radius: 14px;
+            border: none;
+            font-size: 16px;
+            font-weight: 900;
+            cursor: pointer;
+            transition: transform 0.15s, opacity 0.15s;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
-
-        .status {
-            margin-top: 20px;
-            font-size: 14px;
+        .btn:active { transform: scale(0.96); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-danger { background: #f43f5e; color: white; margin-bottom: 12px; }
+        .btn-secondary { background: #334155; color: #cbd5e1; font-size: 13px; padding: 12px; }
+        #status {
+            margin-top: 16px;
+            font-size: 13px;
+            color: #94a3b8;
+            line-height: 1.8;
+            text-align: left;
         }
-
-        .success {
-            color: #10b981;
-        }
-
-        .error {
-            color: #f43f5e;
-        }
+        .ok { color: #10b981; }
+        .fail { color: #f43f5e; }
+        .step { color: #94a3b8; }
     </style>
 </head>
 
 <body>
     <div class="card">
-        <h1>⚠️ Resetar Aplicativo</h1>
-        <p>Se o aplicativo parou de funcionar ou não está atualizando, use este botão para limpar todos os dados locais
-            e baixar a versão mais recente.</p>
+        <div class="icon">🔄</div>
+        <h1>Forçar Atualização</h1>
+        <p class="subtitle">
+            O app está mostrando uma versão antiga? Use este botão para limpar completamente o cache e baixar a versão mais recente.
+        </p>
+        <div class="version-note">
+            ⚡ Este processo remove o Service Worker e todos os dados em cache do navegador. Você precisará fazer login novamente.
+        </div>
 
-        <button onclick="resetApp()" id="btnFn">
-            LIMPAR TUDO E REINICIAR
+        <button class="btn btn-danger" onclick="resetApp()" id="btnFn">
+            🗑️ Limpar Tudo e Atualizar
+        </button>
+        <button class="btn btn-secondary" onclick="window.location.href='/'" id="btnHome">
+            Voltar para o App
         </button>
 
-        <div id="status" class="status"></div>
+        <div id="status"></div>
     </div>
 
     <script>
@@ -90,55 +88,63 @@
             const status = document.getElementById('status');
 
             btn.disabled = true;
-            btn.innerText = 'Limpando...';
-            status.innerHTML = 'Iniciando limpeza...';
+            btn.innerText = '⏳ Limpando...';
+
+            const log = (msg, cls = 'step') => {
+                status.innerHTML += `<div class="${cls}">${msg}</div>`;
+            };
 
             try {
-                // 1. Unregister Service Workers
+                // 1. Unregister ALL Service Workers
                 if ('serviceWorker' in navigator) {
-                    status.innerHTML += '<br>Removendo Service Workers...';
+                    log('🔧 Removendo Service Workers...');
                     const registrations = await navigator.serviceWorker.getRegistrations();
-                    for (const registration of registrations) {
-                        await registration.unregister();
+                    for (const reg of registrations) {
+                        await reg.unregister();
                     }
+                    log('✅ Service Workers removidos', 'ok');
                 }
 
-                // 2. Clear Caches
-                status.innerHTML += '<br>Apagando Cache...';
+                // 2. Delete ALL Caches
+                log('🗑️ Apagando Cache...');
                 if ('caches' in window) {
                     const keys = await caches.keys();
                     for (const key of keys) {
                         await caches.delete(key);
                     }
+                    log(`✅ ${keys.length} cache(s) removido(s)`, 'ok');
                 }
 
                 // 3. Clear Storage
-                status.innerHTML += '<br>Apagando Dados Locais...';
+                log('🗑️ Apagando dados locais...');
                 localStorage.clear();
                 sessionStorage.clear();
+                log('✅ localStorage e sessionStorage limpos', 'ok');
 
-                // 4. Clear IndexedDB (Supabase Auth uses this potentially)
-                if (window.indexedDB) {
+                // 4. IndexedDB
+                if (window.indexedDB && window.indexedDB.databases) {
                     const dbs = await window.indexedDB.databases();
                     for (const db of dbs) {
                         window.indexedDB.deleteDatabase(db.name);
                     }
+                    if (dbs.length > 0) log(`✅ ${dbs.length} banco(s) IndexedDB removido(s)`, 'ok');
                 }
 
-                status.innerHTML += '<br><span class="success">✅ Limpeza concluída! Reiniciando...</span>';
+                log('🚀 Redirecionando para o app...', 'ok');
 
                 setTimeout(() => {
-                    window.location.href = '/';
+                    // Hard reload with cache bypass
+                    window.location.replace('/?nocache=' + Date.now());
                 }, 1500);
 
             } catch (error) {
                 console.error(error);
-                status.innerHTML += `<br><span class="error">❌ Erro: ${error.message}</span>`;
+                log(`❌ Erro: ${error.message}`, 'fail');
                 btn.disabled = false;
-                btn.innerText = 'Tentar Novamente';
+                btn.innerText = '⟳ Tentar Novamente';
             }
         }
     </script>
 </body>
 
-</html>
+</html>
