@@ -6,7 +6,7 @@
     "scripts": {
         "build:css": "npx tailwindcss -i ./src/input.css -o ./dist/output.css --minify",
         "dev:css": "npx tailwindcss -i ./src/input.css -o ./dist/output.css --watch",
-        "build": "npm run build:css"
+        "build:prod": "npm run build:css"
     },
     "devDependencies": {
         "tailwindcss": "^3.4.1"
