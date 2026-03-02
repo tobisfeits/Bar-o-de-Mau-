@@ -63,6 +63,7 @@ export const App = {
         this.bindEvents();
         Theme.init();
         VersionChecker.init();
+        RBAC.loadUserData();
 
         // Check Auth Status
         const savedAuth = DevStorage.get('cd_auth');
