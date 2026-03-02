@@ -4,9 +4,8 @@
     "private": true,
     "description": "Sistema de Pontuação - Clube de Desbravadores Barão de Mauá",
     "scripts": {
-        "build:css": "npx tailwindcss -i ./src/input.css -o ./dist/output.css --minify",
-        "dev:css": "npx tailwindcss -i ./src/input.css -o ./dist/output.css --watch",
-        "build:prod": "npm run build:css"
+        "build_css": "npx tailwindcss -i ./src/input.css -o ./dist/output.css --minify",
+        "dev_css": "npx tailwindcss -i ./src/input.css -o ./dist/output.css --watch"
     },
     "devDependencies": {
         "tailwindcss": "^3.4.1"
