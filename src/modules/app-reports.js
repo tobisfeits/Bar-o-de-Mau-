@@ -1,4 +1,4 @@
-﻿import { Store } from '../data/store.js';
+import { Store } from '../data/store.js';
 import { RBAC } from '../core/auth.js';
 import { Utils } from './ui-utils.js';
 import { Sanitizer } from '../utils/sanitizer.js';
@@ -837,7 +837,6 @@ export const ReportMethods = {
         if (typeof lucide !== 'undefined') lucide.createIcons();
     },
 
-
     // ── Tab: Por Evento ──────────────────────────────────────────────────────
 
     async _renderEventTab(container, start, end) {
@@ -930,8 +929,6 @@ export const ReportMethods = {
 
     },
 
-
-
     _setEventPreset(preset) {
 
         const today = new Date();
@@ -974,8 +971,6 @@ export const ReportMethods = {
 
     },
 
-
-
     async _runEventReport() {
 
         const start = document.getElementById('evento-start')?.value;
@@ -990,13 +985,9 @@ export const ReportMethods = {
 
         if (new Date(start) > new Date(end)) { Toast.show('Data inicial maior que a final', 'error'); return; }
 
-
-
         resultsEl.innerHTML = `<div class="flex justify-center py-8 text-slate-500"><i data-lucide="loader" class="w-6 h-6 animate-spin"></i></div>`;
 
         if (typeof lucide !== 'undefined') lucide.createIcons();
-
-
 
         Loading.show('Agregando dados do evento...');
 
@@ -1004,15 +995,11 @@ export const ReportMethods = {
 
         Loading.hide();
 
-
-
         const allScores = await Store.getScores();
 
         const members = await Store.getMembers();
 
         const units = await Store.getUnits();
-
-
 
         const dates = [];
 
@@ -1021,8 +1008,6 @@ export const ReportMethods = {
             dates.push(d.toISOString().split('T')[0]);
 
         }
-
-
 
         const rows = members.map(member => {
 
@@ -1056,8 +1041,6 @@ export const ReportMethods = {
 
         }).filter(r => r.total > 0).sort((a, b) => b.totalPts - a.totalPts);
 
-
-
         if (rows.length === 0) {
 
             resultsEl.innerHTML = `<div class="bg-slate-900 rounded-2xl border border-slate-800 p-8 text-center"><i data-lucide="inbox" class="w-10 h-10 text-slate-700 mx-auto mb-3"></i><p class="text-slate-400 font-bold">Nenhum dado encontrado</p><p class="text-slate-600 text-sm mt-1">Nenhum lançamento neste período.</p></div>`;
@@ -1067,8 +1050,6 @@ export const ReportMethods = {
             return;
 
         }
-
-
 
         resultsEl.innerHTML = `
 
@@ -1193,9 +1174,6 @@ export const ReportMethods = {
         if (typeof lucide !== 'undefined') lucide.createIcons();
 
     },
-
-
-
 
     // ── Legacy exports (kept for compatibility) ──────────────────────────────
     async exportToCSV() {

@@ -1,5 +1,6 @@
 {
-  "buildCommand": "",
+  "buildCommand": "npm run build",
+  "outputDirectory": "./",
   "framework": null,
   "rewrites": [
     {
@@ -57,7 +58,7 @@
       ]
     },
     {
-      "source": "/src/(.*)",
+      "source": "/src/**/*.js",
       "headers": [
         {
           "key": "Cache-Control",
@@ -66,7 +67,7 @@
       ]
     },
     {
-      "source": "/(.*)\.js",
+      "source": "/**/*.js",
       "headers": [
         {
           "key": "Cache-Control",
