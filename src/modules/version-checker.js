@@ -1,5 +1,5 @@
 export const VersionChecker = {
-    currentVersion: '2026.03.02.006_FINAL_FIX',
+    currentVersion: '2026.03.02.007',
     checkInterval: 30000, // 30 segundos
     intervalId: null,
 
