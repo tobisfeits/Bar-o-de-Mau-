@@ -260,10 +260,6 @@ export const DashboardMethods = {
             if (typeof lucide !== 'undefined') lucide.createIcons();
             this.toggleNavigation(true);
 
-            // Focus search if it was active
-                }
-            }
-
             // Check for pending roll calls on meetings
             this.checkPendingRollCalls(todayKey, visibleUnits, allScores);
 
@@ -343,7 +339,7 @@ export const DashboardMethods = {
     async checkPendingRollCalls(dateKey, allUnits, allScores) {
         const meetings = await Store.getMeetings();
         const isMeeting = meetings.some(m => m.date === dateKey);
-        
+
         const labelEl = document.getElementById('meeting-label');
         const btnRegister = document.getElementById('btn-register-meeting');
         const alertArea = document.getElementById('dashboard-alerts');
@@ -351,7 +347,7 @@ export const DashboardMethods = {
         if (isMeeting) {
             if (labelEl) labelEl.classList.remove('hidden');
             if (btnRegister) btnRegister.classList.add('hidden');
-            
+
             // Check which units are pending
             const pendingUnits = [];
             for (const unit of allUnits) {
@@ -359,7 +355,7 @@ export const DashboardMethods = {
                 // A unit is pending if ANY of its members has NO score record for this date
                 const unitScores = allScores[dateKey] || {};
                 const hasPending = members.some(m => !unitScores[m.id]);
-                
+
                 if (hasPending) {
                     pendingUnits.push(unit);
                 }
