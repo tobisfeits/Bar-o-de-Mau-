@@ -85,15 +85,15 @@ export const Store = {
         }
 
         const scores = this.scoresCache;
-        if (!scores[dateKey]) return this.getDefaultScore();
-        return scores[dateKey][memberId] || this.getDefaultScore();
+        if (!scores[dateKey]) return null;
+        return scores[dateKey][memberId] || null;
     },
 
     getDefaultScore() {
         return {
             isAbsent: false,
             items: CONFIG.SCORE_ITEMS.reduce((acc, item) => {
-                acc[item.id] = false;
+                acc[item.id] = null; // Changed from false to null for better validation
                 return acc;
             }, {})
         };
@@ -141,6 +141,23 @@ export const Store = {
     clearSession() {
         this.clearCurrentUser();
         Cache.clear();
+    },
+
+    // --- Meetings ---
+    async getMeetings() {
+        return await DataAdapter.getMeetings();
+    },
+
+    async saveMeeting(date) {
+        const currentUser = this.getCurrentUser();
+        const meetingData = {
+            date,
+            created_by: currentUser ? currentUser.name : 'Sistema',
+            created_by_id: currentUser ? currentUser.id : null,
+            created_at: new Date().toISOString()
+        };
+        await DataAdapter.saveMeeting(meetingData);
+        return meetingData;
     },
 
     // --- Counselor Scores ---

@@ -104,20 +104,20 @@ export const SimplePINHasher = {
             return { valid: false, errors: ['PIN é obrigatório'] };
         }
 
-        // Minimum 4 digits
+        // Minimum 4 characters
         if (pin.length < 4) {
-            errors.push('PIN deve ter pelo menos 4 dígitos');
+            errors.push('A senha deve ter pelo menos 4 caracteres');
         }
 
-        // Maximum 8 digits
-        if (pin.length > 8) {
-            errors.push('PIN deve ter no máximo 8 dígitos');
+        // Maximum 20 characters
+        if (pin.length > 20) {
+            errors.push('A senha deve ter no máximo 20 caracteres');
         }
 
-        // Only digits allowed
-        if (!/^\d+$/.test(pin)) {
-            errors.push('PIN deve conter apenas números');
-        }
+        // Removed strict digit-only check to allow 'passwords'
+        // if (!/^\d+$/.test(pin)) {
+        //     errors.push('Senha deve conter apenas números');
+        // }
 
         // Avoid simple patterns
         if (pin === '1234' || pin === '0000' || pin === '1111') {
@@ -126,7 +126,7 @@ export const SimplePINHasher = {
 
         // Check for repeating digits
         if (/^(\d)\1+$/.test(pin)) {
-            errors.push('PIN não pode ter todos os dígitos iguais');
+            errors.push('A senha não pode ter todos os caracteres iguais');
         }
 
         return {

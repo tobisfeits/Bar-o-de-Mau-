@@ -42,7 +42,8 @@ export const CONFIG = {
         SCORES: 'cd_scores',
         COUNSELOR_SCORES: 'cd_counselor_scores',
         CURRENT_USER: 'cd_current_user',
-        USERS: 'cd_users'
+        USERS: 'cd_users',
+        MEETINGS: 'cd_meetings'
     },
     TOTAL_POINTS: 184,
     TOTAL_COUNSELOR_POINTS: 110

@@ -1,9 +1,9 @@
 // Service Worker for Barão de Mauá PWA - IMPROVED VERSION
 // Auto-update with network-first strategy for critical files
 
-const CACHE_VERSION = '2026.02.27.006'; // fix: login screen syntax error
-const CACHE_NAME = `barao-maua-v${CACHE_VERSION}`;
-const RUNTIME_CACHE = `barao-maua-runtime-v${CACHE_VERSION}`;
+const CACHE_VERSION = '2026.03.02.001'; // feat: granular item reports
+const CACHE_NAME = `desbravadores-v${CACHE_VERSION}`;
+const RUNTIME_CACHE = `desbravadores-runtime-v${CACHE_VERSION}`;
 
 // Critical files that should ALWAYS be fetched from network first
 const NETWORK_FIRST_FILES = [

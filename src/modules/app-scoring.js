@@ -80,51 +80,85 @@ export const ScoringMethods = {
                     ` : ''}
                 </div>
 
-                <!-- Scoring Form -->
-                <div class="px-4 space-y-3">
-                    <!-- Absence Toggle -->
-                    <div class="bg-slate-800 rounded-xl p-4 border border-slate-700 flex items-center justify-between mb-6 shadow-md">
-                        <div class="flex items-center gap-3">
-                            <div class="bg-brand-red/20 p-2 rounded-lg">
-                                <i data-lucide="user-x" class="w-5 h-5 text-brand-red"></i>
-                            </div>
-                            <span class="font-bold text-white">Marcar como Falta</span>
-                        </div>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" id="toggle-absent" class="sr-only peer"
-                                   ${score.isAbsent ? 'checked' : ''}
-                                   onchange="App.toggleAbsence('${memberId}')">
-                            <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer 
-                                      peer-checked:after:translate-x-full peer-checked:after:border-white 
-                                      after:content-[''] after:absolute after:top-[2px] after:left-[2px] 
-                                      after:bg-white after:border-gray-300 after:border after:rounded-full 
-                                      after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-red"></div>
-                        </label>
+                <!-- Attendance Status Selection -->
+                <div class="px-4 mb-6">
+                    <label class="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 ml-1">Status da Chamada</label>
+                    <div class="flex bg-slate-900 p-1.5 rounded-2xl border border-slate-800 shadow-lg relative overflow-hidden">
+                        <!-- Selector Background - Logic handled via JS class manipulation -->
+                        <div id="status-bg" class="absolute top-1.5 bottom-1.5 left-1.5 w-[calc(33.33%-3px)] bg-brand-gold rounded-xl transition-all duration-300 z-0
+                             ${!score ? 'translate-x-0 bg-slate-700' : (score.isAbsent ? 'translate-x-[200%] bg-red-600' : 'translate-x-full bg-green-600')}"></div>
+                        
+                        <button onclick="App.setAttendanceStatus('${memberId}', 'pending')" 
+                                class="flex-1 py-2.5 px-2 rounded-xl text-xs font-black uppercase tracking-tighter transition-all relative z-10
+                                       ${!score ? 'text-white' : 'text-slate-500'}">
+                            Pendente
+                        </button>
+                        <button onclick="App.setAttendanceStatus('${memberId}', 'present')" 
+                                class="flex-1 py-2.5 px-2 rounded-xl text-xs font-black uppercase tracking-tighter transition-all relative z-10
+                                       ${score && !score.isAbsent ? 'text-white' : 'text-slate-500'}">
+                            Presente
+                        </button>
+                        <button onclick="App.setAttendanceStatus('${memberId}', 'absent')" 
+                                class="flex-1 py-2.5 px-2 rounded-xl text-xs font-black uppercase tracking-tighter transition-all relative z-10
+                                       ${score && score.isAbsent ? 'text-white' : 'text-slate-500'}">
+                            Ausente
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Score Items -->
+                <div id="score-items-container" class="px-4 space-y-3 transition-all duration-300 
+                     ${!score ? 'opacity-40 pointer-events-none' : (score.isAbsent ? 'opacity-30 pointer-events-none grayscale' : '')}">
+                    
+                    <div class="flex items-center justify-between mb-2 px-1">
+                        <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Itens de Pontuação</label>
+                        ${score && !score.isAbsent ? `
+                            <span class="text-[10px] font-bold text-brand-gold bg-brand-gold/10 px-2 py-0.5 rounded border border-brand-gold/20">
+                                Preenchimento Obrigatório
+                            </span>
+                        ` : ''}
                     </div>
 
-                    <!-- Score Items -->
-                    <div id="score-items-container" class="space-y-3 transition-opacity duration-300 ${score.isAbsent ? 'opacity-40 pointer-events-none grayscale' : ''}">
-                        ${CONFIG.SCORE_ITEMS.map(item => `
-                            <div onclick="App.togglePoint('${item.id}')"
-                                 class="bg-slate-900 rounded-xl p-4 border border-slate-800 shadow-sm active:scale-[0.99] transition-all cursor-pointer select-none group">
-                                <div class="flex items-center justify-between">
-                                    <span class="font-bold text-slate-200 group-hover:text-white transition-colors">
-                                        ${item.name}
-                                    </span>
-                                    <div class="flex items-center gap-3">
-                                        <span class="text-xs font-black text-slate-500 uppercase tracking-wider bg-slate-950 px-2 py-1 rounded">
+                    ${CONFIG.SCORE_ITEMS.map(item => {
+                        const itemValue = score && score.items ? score.items[item.id] : null;
+                        const isSelected = itemValue === true;
+                        const isFailed = itemValue === false;
+                        
+                        return `
+                            <div class="bg-slate-900 rounded-xl p-4 border border-slate-800 shadow-sm transition-all group overflow-hidden relative">
+                                <div class="flex items-center justify-between relative z-10">
+                                    <div class="flex flex-col">
+                                        <span class="font-bold text-slate-200 group-hover:text-white transition-colors">
+                                            ${item.name}
+                                        </span>
+                                        <span class="text-[10px] font-black text-slate-500 uppercase tracking-wider">
                                             ${item.points} pts
                                         </span>
-                                        <div class="w-6 h-6 rounded-full border-2 border-slate-600 flex items-center justify-center transition-colors 
-                                                    ${score.items && score.items[item.id] ? 'bg-brand-gold border-brand-gold' : ''}"
-                                             id="check-${item.id}">
-                                            ${score.items && score.items[item.id] ?
-                '<i data-lucide="check" class="w-4 h-4 text-slate-900 font-bold"></i>' : ''}
-                                        </div>
+                                    </div>
+                                    
+                                    <div class="flex items-center gap-2">
+                                        <button onclick="App.setItemPoint('${item.id}', true)" 
+                                                id="btn-yes-${item.id}"
+                                                class="w-12 py-2 rounded-lg font-black text-[10px] uppercase transition-all
+                                                       ${isSelected ? 'bg-green-600 text-white shadow-lg shadow-green-900/20' : 'bg-slate-800 text-slate-500 hover:bg-slate-700'}">
+                                            Sim
+                                        </button>
+                                        <button onclick="App.setItemPoint('${item.id}', false)" 
+                                                id="btn-no-${item.id}"
+                                                class="w-12 py-2 rounded-lg font-black text-[10px] uppercase transition-all
+                                                       ${isFailed ? 'bg-red-600 text-white shadow-lg shadow-red-900/20' : 'bg-slate-800 text-slate-500 hover:bg-slate-700'}">
+                                            Não
+                                        </button>
                                     </div>
                                 </div>
+
+                                <!-- Validation Indicator -->
+                                ${itemValue === null && score && !score.isAbsent ? `
+                                    <div class="absolute inset-y-0 right-0 w-1 bg-amber-500/50"></div>
+                                ` : ''}
                             </div>
-                        `).join('')}
+                        `;
+                    }).join('')}
 
                         <!-- 10 Dias de Oração -->
                         <div class="mt-6 bg-gradient-to-br from-indigo-900/40 to-purple-900/30 rounded-xl border border-indigo-500/30 overflow-hidden">
@@ -196,21 +230,80 @@ export const ScoringMethods = {
         this.toggleNavigation(false);
     },
 
-    togglePoint(itemId) {
+    setItemPoint(itemId, value) {
         if (Haptic) Haptic.selection();
 
-        const checkEl = document.getElementById(`check-${itemId}`);
-        if (!checkEl) return;
+        // Update UI
+        const btnYes = document.getElementById(`btn-yes-${itemId}`);
+        const btnNo = document.getElementById(`btn-no-${itemId}`);
+        if (!btnYes || !btnNo) return;
 
-        const isChecked = checkEl.classList.contains('bg-brand-gold');
+        if (value === true) {
+            btnYes.className = 'w-12 py-2 rounded-lg font-black text-[10px] uppercase transition-all bg-green-600 text-white shadow-lg shadow-green-900/20';
+            btnNo.className = 'w-12 py-2 rounded-lg font-black text-[10px] uppercase transition-all bg-slate-800 text-slate-500 hover:bg-slate-700';
+        } else if (value === false) {
+            btnYes.className = 'w-12 py-2 rounded-lg font-black text-[10px] uppercase transition-all bg-slate-800 text-slate-500 hover:bg-slate-700';
+            btnNo.className = 'w-12 py-2 rounded-lg font-black text-[10px] uppercase transition-all bg-red-600 text-white shadow-lg shadow-red-900/20';
+        }
 
-        if (isChecked) {
-            checkEl.classList.remove('bg-brand-gold', 'border-brand-gold');
-            checkEl.innerHTML = '';
+        // Remove validation indicator if exists
+        const card = btnYes.closest('.bg-slate-900');
+        const indicator = card?.querySelector('.bg-amber-500\\/50');
+        if (indicator) indicator.remove();
+    },
+
+    setAttendanceStatus(memberId, status) {
+        if (Haptic) Haptic.selection();
+
+        // Update UI Selector
+        const statusBg = document.getElementById('status-bg');
+        const btns = {
+            pending: document.querySelector(`button[onclick*="setAttendanceStatus('${memberId}', 'pending')"]`),
+            present: document.querySelector(`button[onclick*="setAttendanceStatus('${memberId}', 'present')"]`),
+            absent: document.querySelector(`button[onclick*="setAttendanceStatus('${memberId}', 'absent')"]`)
+        };
+
+        if (status === 'pending') {
+            statusBg.className = 'absolute top-1.5 bottom-1.5 left-1.5 w-[calc(33.33%-3px)] bg-slate-700 rounded-xl transition-all duration-300 z-0 translate-x-0';
+        } else if (status === 'present') {
+            statusBg.className = 'absolute top-1.5 bottom-1.5 left-1.5 w-[calc(33.33%-3px)] bg-green-600 rounded-xl transition-all duration-300 z-0 translate-x-full';
         } else {
-            checkEl.classList.add('bg-brand-gold', 'border-brand-gold');
-            checkEl.innerHTML = '<i data-lucide="check" class="w-4 h-4 text-slate-900 font-bold"></i>';
-            if (typeof lucide !== 'undefined') lucide.createIcons();
+            statusBg.className = 'absolute top-1.5 bottom-1.5 left-1.5 w-[calc(33.33%-3px)] bg-red-600 rounded-xl transition-all duration-300 z-0 translate-x-[200%]';
+        }
+
+        // Update text colors
+        Object.keys(btns).forEach(key => {
+            if (btns[key]) {
+                btns[key].className = btns[key].className.replace(/text-white|text-slate-500/g, key === status ? 'text-white' : 'text-slate-500');
+            }
+        });
+
+        // Update Container State
+        const container = document.getElementById('score-items-container');
+        if (status === 'pending') {
+            container.classList.add('opacity-40', 'pointer-events-none');
+            container.classList.remove('grayscale', 'opacity-30');
+        } else if (status === 'absent') {
+            container.classList.add('opacity-30', 'pointer-events-none', 'grayscale');
+            container.classList.remove('opacity-40');
+            
+            // Auto-clear items to "Absent" logic
+            this.selectPrayerLevel('absent');
+            CONFIG.SCORE_ITEMS.forEach(item => this.setItemPoint(item.id, false));
+        } else {
+            container.classList.remove('opacity-40', 'pointer-events-none', 'grayscale', 'opacity-30');
+            
+            // Update "Preenchimento Obrigatório" label visibility
+            if (!container.querySelector('.text-brand-gold')) {
+                const labelArea = container.querySelector('.flex.items-center.justify-between.mb-2');
+                if (labelArea) {
+                    labelArea.innerHTML += `
+                        <span class="text-[10px] font-bold text-brand-gold bg-brand-gold/10 px-2 py-0.5 rounded border border-brand-gold/20">
+                            Preenchimento Obrigatório
+                        </span>
+                    `;
+                }
+            }
         }
     },
 
@@ -251,93 +344,96 @@ export const ScoringMethods = {
         radio.innerHTML = '<div class="w-2 h-2 rounded-full bg-white"></div>';
     },
 
-    toggleAbsence(memberId) {
-        const toggle = document.getElementById('toggle-absent');
-        const container = document.getElementById('score-items-container');
-
-        if (toggle.checked) {
-            container.classList.add('opacity-40', 'pointer-events-none', 'grayscale');
-        } else {
-            container.classList.remove('opacity-40', 'pointer-events-none', 'grayscale');
-        }
-    },
-
     async saveCurrentScore(memberId) {
-        const isAbsent = document.getElementById('toggle-absent')?.checked;
+        // Determine status from UI
+        const statusBg = document.getElementById('status-bg');
+        if (!statusBg) return;
+
+        let status = 'pending';
+        if (statusBg.classList.contains('translate-x-full')) status = 'present';
+        else if (statusBg.classList.contains('translate-x-[200%]')) status = 'absent';
+
+        if (status === 'pending') {
+            Toast.show('Defina o status de presença (Presente ou Ausente) antes de salvar.', 'warning');
+            if (Haptic) Haptic.error();
+            return;
+        }
+
+        const isAbsent = (status === 'absent');
         const items = {};
+        const missingItems = [];
 
         if (!isAbsent) {
+            // Validate all items
             CONFIG.SCORE_ITEMS.forEach(item => {
-                const checkEl = document.getElementById(`check-${item.id}`);
-                items[item.id] = checkEl && checkEl.classList.contains('bg-brand-gold');
+                const btnYes = document.getElementById(`btn-yes-${item.id}`);
+                const btnNo = document.getElementById(`btn-no-${item.id}`);
+                
+                if (btnYes?.classList.contains('bg-green-600')) {
+                    items[item.id] = true;
+                } else if (btnNo?.classList.contains('bg-red-600')) {
+                    items[item.id] = false;
+                } else {
+                    missingItems.push(item.name);
+                }
             });
 
             // Save prayer level
-            const selectedPrayer = CONFIG.PRAYER_EVENT.levels.find(level => {
+            let selectedPrayer = null;
+            CONFIG.PRAYER_EVENT.levels.forEach(level => {
                 const el = document.getElementById(`prayer-${level.id}`);
-                return el && el.classList.contains({
-                    green: 'border-green-500',
-                    yellow: 'border-yellow-500',
-                    orange: 'border-orange-500',
-                    red: 'border-red-500'
-                }[level.color]);
+                if (el?.classList.contains('border-green-500') || 
+                    el?.classList.contains('border-yellow-500') || 
+                    el?.classList.contains('border-orange-500') || 
+                    el?.classList.contains('border-red-500')) {
+                    selectedPrayer = level.id;
+                }
             });
-            if (selectedPrayer) {
-                items[CONFIG.PRAYER_EVENT.id] = selectedPrayer.id;
+
+            if (!selectedPrayer) {
+                missingItems.push('10 Dias de Oração');
+            } else {
+                items[CONFIG.PRAYER_EVENT.id] = selectedPrayer;
             }
 
-            // --- Blank form validation ---
-            const hasAnyScore = Object.values(items).some(v => v === true);
-            const hasPrayer = !!selectedPrayer;
-            if (!hasAnyScore && !hasPrayer) {
-                Toast.show('Atenção: Você precisa realizar pelo menos um lançamento de pontos ou marcar o desbravador como ausente antes de salvar.', 'error');
+            if (missingItems.length > 0) {
+                Toast.show(`Preencha todos os itens obrigatórios: ${missingItems[0]}${missingItems.length > 1 ? '...' : ''}`, 'error');
                 if (Haptic) Haptic.error();
                 return;
             }
+        } else {
+            // Absent: items are all false
+            CONFIG.SCORE_ITEMS.forEach(item => items[item.id] = false);
+            items[CONFIG.PRAYER_EVENT.id] = 'absent';
         }
 
         const scoreData = {
             isAbsent,
-            items: isAbsent ? {} : items
+            items: items
         };
 
-        const saveDate = this.scoringDate || Utils.getTodayKey();
-        await Store.saveScore(memberId, saveDate, scoreData);
+        try {
+            Loading.show('Salvando...');
+            const saveDate = this.scoringDate || Utils.getTodayKey();
+            await Store.saveScore(memberId, saveDate, scoreData);
 
-        const isRetroactive = saveDate !== Utils.getTodayKey();
-        Toast.show(isRetroactive ? `Pontuação salva para ${Utils.formatDate(saveDate)}!` : 'Pontuação salva!', 'success');
+            const isRetroactive = saveDate !== Utils.getTodayKey();
+            Toast.show(isRetroactive ? `Salvo para ${Utils.formatDate(saveDate)}!` : 'Salvo com sucesso!', 'success');
 
-        if (Haptic) Haptic.success();
-
-        // Stay on the member's scoring screen after saving
-        // so the user can review the result, then press Back to return to the unit list.
-        await this.renderScoring(memberId);
+            if (Haptic) Haptic.success();
+            await this.renderScoring(memberId);
+        } catch (error) {
+            console.error('Error saving score:', error);
+            Toast.show('Erro ao salvar no servidor. Tente novamente.', 'error');
+        } finally {
+            Loading.hide();
+        }
     },
 
     changeScoringDate(memberId, newDate) {
         if (!newDate) return;
-
-        // Check for unsaved changes (any toggle that was modified)
-        const hasChanges = document.querySelectorAll('#score-items-container input[type="checkbox"]:checked').length > 0
-            || document.getElementById('toggle-absent')?.checked;
-
-        if (hasChanges) {
-            ConfirmDialog.show(
-                'Você tem alterações não salvas. Deseja trocar a data e perder as alterações?',
-                () => {
-                    this.scoringDate = newDate;
-                    this.renderScoring(memberId);
-                },
-                () => {
-                    // Reset date picker to current scoring date
-                    const picker = document.getElementById('scoring-date-picker');
-                    if (picker) picker.value = this.scoringDate;
-                }
-            );
-        } else {
-            this.scoringDate = newDate;
-            this.renderScoring(memberId);
-        }
+        this.scoringDate = newDate;
+        this.renderScoring(memberId);
     },
 
     inactivateMemberPrompt(memberId) {
@@ -348,25 +444,10 @@ export const ScoringMethods = {
     },
 
     async inactivateMember(memberId) {
-        // Use Store directly
         const member = (await Store.getMembers()).find(m => m.id === memberId);
         if (!member) return;
-
-        // In app.js it calls Store.deleteMember which calls inactivateMember
-        // Here we can call Store.inactivateMember directly if it exists, but Store.js has deleteMember (deprecated) and removeMember?
-        // Let's check Store.js content from previous steps. 
-        // I recall Store.js had `inactivateMember` (I viewed app.js deprecation warning).
-        // Let's check src/data/store.js to be sure. I wrote it in step 3774 (summary says "Extract Store to src/data/store.js").
-        // I'll assume Store.inactivateMember exists as referenced in app.js.
-
         await Store.inactivateMember(memberId);
-
         Toast.show('Membro inativado com sucesso', 'success');
-
-        // Navigate to dashboard or unit depending on where we are
-        // If we were in scoring, go back to unit
-        // If we were in unit details, reload unit details
-        // Safest is to go to Unit Details of that member
         this.navigate('unit', { unitId: member.unitId });
     }
 };

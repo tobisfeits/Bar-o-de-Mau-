@@ -118,12 +118,26 @@ export const DashboardMethods = {
                                            value="${todayKey}"
                                            onchange="App.changeSessionDate(this.value)"
                                            class="bg-slate-800 border-none text-brand-gold font-bold text-sm rounded px-2 py-0.5 outline-none focus:ring-1 focus:ring-brand-gold cursor-pointer">
+                                    
+                                    <button onclick="App.registerMeeting('${todayKey}')" id="btn-register-meeting"
+                                            class="bg-slate-800 text-[10px] text-slate-400 font-bold uppercase px-2 py-1 rounded hover:bg-slate-700 transition-colors flex items-center gap-1">
+                                        <i data-lucide="calendar" class="w-3 h-3 text-brand-gold"></i>
+                                        Marcar Reunião
+                                    </button>
                                 </div>
                             ` : `
                                 <p class="text-slate-400 text-sm font-medium">
                                     ${Utils.formatDate(todayKey)}
                                 </p>
                             `}
+
+                            <!-- Meeting Status Label -->
+                            <div id="meeting-label" class="mt-2 hidden">
+                                <span class="bg-brand-gold/10 text-brand-gold text-[10px] font-black uppercase px-2 py-0.5 rounded border border-brand-gold/30 flex items-center gap-1 w-fit">
+                                    <i data-lucide="check-circle" class="w-3 h-3"></i>
+                                    Dia de Reunião Oficial
+                                </span>
+                            </div>
 
                             <!-- Sync Status Indicator -->
                             <div id="sync-status" class="mt-2 text-xs font-bold px-2 py-1 rounded w-fit hidden">
@@ -146,6 +160,9 @@ export const DashboardMethods = {
                             </div>
                         ` : ''}
                     </div>
+
+                    <!-- Pending Alerts Area -->
+                    <div id="dashboard-alerts" class="mb-4 space-y-2"></div>
 
                     <!-- Search / Filter -->
                     <div class="mb-6 relative">
@@ -244,16 +261,12 @@ export const DashboardMethods = {
             this.toggleNavigation(true);
 
             // Focus search if it was active
-            if (this.activeFilters?.query) {
-                const searchInput = document.getElementById('dashboard-search');
-                if (searchInput) {
-                    searchInput.focus();
-                    // Cursor to end
-                    const val = searchInput.value;
-                    searchInput.value = '';
-                    searchInput.value = val;
                 }
             }
+
+            // Check for pending roll calls on meetings
+            this.checkPendingRollCalls(todayKey, visibleUnits, allScores);
+
         } catch (error) {
             console.error('Error rendering dashboard:', error);
             Toast.show('Erro ao carregar dashboard', 'error');
@@ -312,4 +325,71 @@ export const DashboardMethods = {
 
         SyncManager.setStatusListener(updateUI);
     },
+
+    async registerMeeting(date) {
+        try {
+            Loading.show('Registrando reunião...');
+            await Store.saveMeeting(date);
+            Toast.show('Dia de reunião registrado!', 'success');
+            await this.renderDashboard();
+        } catch (error) {
+            console.error('Erro ao registrar reunião:', error);
+            Toast.show('Erro ao registrar reunião', 'error');
+        } finally {
+            Loading.hide();
+        }
+    },
+
+    async checkPendingRollCalls(dateKey, allUnits, allScores) {
+        const meetings = await Store.getMeetings();
+        const isMeeting = meetings.some(m => m.date === dateKey);
+        
+        const labelEl = document.getElementById('meeting-label');
+        const btnRegister = document.getElementById('btn-register-meeting');
+        const alertArea = document.getElementById('dashboard-alerts');
+
+        if (isMeeting) {
+            if (labelEl) labelEl.classList.remove('hidden');
+            if (btnRegister) btnRegister.classList.add('hidden');
+            
+            // Check which units are pending
+            const pendingUnits = [];
+            for (const unit of allUnits) {
+                const members = await Store.getMembersByUnit(unit.id);
+                // A unit is pending if ANY of its members has NO score record for this date
+                const unitScores = allScores[dateKey] || {};
+                const hasPending = members.some(m => !unitScores[m.id]);
+                
+                if (hasPending) {
+                    pendingUnits.push(unit);
+                }
+            }
+
+            if (pendingUnits.length > 0 && alertArea) {
+                alertArea.innerHTML = `
+                    <div class="bg-red-500/10 border border-red-500/30 rounded-xl p-4 animate-bounce-subtle">
+                        <div class="flex items-center gap-3">
+                            <i data-lucide="alert-triangle" class="w-6 h-6 text-red-500"></i>
+                            <div>
+                                <h4 class="text-sm font-black text-white uppercase tracking-wider">Chamadas Pendentes</h4>
+                                <p class="text-xs text-red-400 font-medium">As seguintes unidades ainda não finalizaram a chamada de hoje:</p>
+                            </div>
+                        </div>
+                        <div class="mt-3 flex flex-wrap gap-2">
+                            ${pendingUnits.map(u => `
+                                <span class="bg-red-500/20 text-red-400 text-[10px] font-black uppercase px-2 py-1 rounded border border-red-500/20">
+                                    ${u.name}
+                                </span>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            }
+        } else {
+            if (labelEl) labelEl.classList.add('hidden');
+            if (btnRegister) btnRegister.classList.remove('hidden');
+            if (alertArea) alertArea.innerHTML = '';
+        }
+    }
 };

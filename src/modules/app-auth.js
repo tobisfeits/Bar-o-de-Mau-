@@ -481,7 +481,7 @@ export const AuthMethods = {
                             <label class="block text-xs font-bold text-slate-400 mb-1 uppercase">Nova Senha</label>
                             <input type="password" id="new-password" 
                                    class="w-full px-4 py-3 bg-slate-900 border border-slate-600 rounded-xl text-white focus:border-brand-gold focus:outline-none transition-colors"
-                                   placeholder="Mínimo 4 caracteres">
+                                   placeholder="Mínimo 4 caracteres (números ou letras)">
                         </div>
 
                         <div>
@@ -510,8 +510,10 @@ export const AuthMethods = {
         const confirmPass = document.getElementById('confirm-password').value;
         const user = Store.getCurrentUser();
 
-        if (newPass.length < 4) {
-            Toast.show('A senha deve ter pelo menos 4 caracteres.', 'error');
+        // Use hasher validation for strength
+        const validation = window.SimplePINHasher.validatePINStrength(newPass);
+        if (!validation.valid) {
+            Toast.show(validation.errors[0], 'error');
             return;
         }
 

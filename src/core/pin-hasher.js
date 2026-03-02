@@ -85,9 +85,9 @@ export const PINHasher = {
             errors.push('PIN deve ter pelo menos 4 dígitos');
         }
 
-        // Maximum 8 digits (reasonable for PIN)
-        if (pin.length > 8) {
-            errors.push('PIN deve ter no máximo 8 dígitos');
+        // Maximum 20 characters
+        if (pin.length > 20) {
+            errors.push('A senha deve ter no máximo 20 caracteres');
         }
 
         // Only digits allowed

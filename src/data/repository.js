@@ -403,5 +403,57 @@ export const DataAdapter = {
         if (!scores[dateKey]) scores[dateKey] = {};
         scores[dateKey][counselorId] = scoreData;
         DevStorage.set(CONFIG.STORAGE_KEYS.COUNSELOR_SCORES, scores);
+    },
+
+    // MEETINGS
+    async getMeetings() {
+        const cached = Cache.get('meetings');
+        if (cached) return cached;
+
+        if (this.useSupabase()) {
+            try {
+                const { data, error } = await window.supabaseClient
+                    .from('meetings')
+                    .select('*')
+                    .is('deleted_at', null)
+                    .order('date', { ascending: false });
+
+                if (error) throw error;
+                Cache.set('meetings', data || []);
+                return data || [];
+            } catch (error) {
+                console.error('Erro ao buscar reuniões do Supabase:', error);
+                return [];
+            }
+        } else {
+            const meetings = DevStorage.get(CONFIG.STORAGE_KEYS.MEETINGS) || [];
+            Cache.set('meetings', meetings);
+            return meetings;
+        }
+    },
+
+    async saveMeeting(meetingData) {
+        if (this.useSupabase()) {
+            try {
+                const { error } = await window.supabaseClient
+                    .from('meetings')
+                    .upsert(meetingData, { onConflict: 'date' });
+                if (error) throw error;
+            } catch (error) {
+                console.error('Erro ao salvar reunião (Supabase):', error);
+                SyncManager.enqueue('SAVE_MEETING', meetingData);
+            }
+        }
+
+        // Always save to DevStorage
+        const meetings = DevStorage.get(CONFIG.STORAGE_KEYS.MEETINGS) || [];
+        const index = meetings.findIndex(m => m.date === meetingData.date);
+        if (index >= 0) {
+            meetings[index] = meetingData;
+        } else {
+            meetings.push(meetingData);
+        }
+        DevStorage.set(CONFIG.STORAGE_KEYS.MEETINGS, meetings);
+        Cache.remove('meetings');
     }
 };
