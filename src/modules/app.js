@@ -116,12 +116,7 @@ export const App = {
                         <span class="text-[10px] uppercase font-bold">Início</span>
                     </button>
                     
-                    ${RBAC.isSuperAdmin() ? `
-                    <button onclick="App.navigate('photo-management')" class="flex flex-col items-center p-2 text-slate-400 hover:text-brand-gold transition-colors">
-                        <i data-lucide="camera" class="w-6 h-6 mb-1"></i>
-                        <span class="text-[10px] uppercase font-bold">Fotos</span>
-                    </button>
-                    ` : ''}
+                    
 
                     ${RBAC.canViewReports() ? `
                     <button onclick="App.navigate('reports')" id="btn-report" class="flex flex-col items-center p-4 -mt-8 bg-brand-gold text-slate-900 rounded-full shadow-xl shadow-brand-gold/20 border-4 border-slate-900 active:scale-90 transition-all">
