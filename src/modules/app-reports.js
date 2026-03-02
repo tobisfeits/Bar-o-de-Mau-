@@ -1,4 +1,4 @@
-import { Store } from '../data/store.js';
+﻿import { Store } from '../data/store.js';
 import { RBAC } from '../core/auth.js';
 import { Utils } from './ui-utils.js';
 import { Sanitizer } from '../utils/sanitizer.js';
@@ -68,6 +68,7 @@ export const ReportMethods = {
                     ${[
                 { id: 'individual', icon: 'user', label: 'Individual' },
                 { id: 'por-item', icon: 'filter', label: 'Por Item' },
+                { id: 'por-evento', icon: 'calendar-range', label: 'Evento' },
                 { id: 'club', icon: 'bar-chart-2', label: 'Clube' },
                 { id: 'ranking', icon: 'trophy', label: 'Ranking' },
                 { id: 'alerts', icon: 'alert-triangle', label: 'Alertas' },
@@ -94,7 +95,7 @@ export const ReportMethods = {
     setReportTab(tab) {
         this._activeReportTab = tab;
         // Update tab styles
-        ['individual', 'por-item', 'club', 'ranking', 'alerts'].forEach(t => {
+        ['individual', 'por-item', 'por-evento', 'club', 'ranking', 'alerts'].forEach(t => {
             const btn = document.getElementById(`rpt-tab-${t}`);
             if (!btn) return;
             if (t === tab) {
@@ -121,6 +122,7 @@ export const ReportMethods = {
         switch (this._activeReportTab) {
             case 'individual': await this._renderIndividualTab(container, start, end); break;
             case 'por-item': await this._renderItemTab(container, start, end); break;
+            case 'por-evento': await this._renderEventTab(container, start, end); break;
             case 'club': await this._renderClubTab(container, start, end); break;
             case 'ranking': await this._renderRankingTab(container, start, end); break;
             case 'alerts': await this._renderAlertsTab(container, start, end); break;
@@ -835,6 +837,186 @@ export const ReportMethods = {
         if (typeof lucide !== 'undefined') lucide.createIcons();
     },
 
+
+    // ── Tab: Por Evento ──────────────────────────────────────────────────────
+    async _renderEventTab(container, start, end) {
+    const todayKey = Utils.getTodayKey();
+    container.innerHTML = `
+            <div class="space-y-4">
+                <div class="bg-slate-900 rounded-2xl border border-slate-700 p-4 space-y-3">
+                    <div class="flex items-center gap-2 mb-1">
+                        <i data-lucide="calendar-range" class="w-4 h-4 text-brand-gold"></i>
+                        <h4 class="font-black text-white text-sm uppercase tracking-wider">Relatório por Evento</h4>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 mb-1.5 uppercase">Preset de Evento</label>
+                        <div class="grid grid-cols-2 gap-2 mb-3">
+                            <button onclick="App._setEventPreset('10dias')" class="py-2 rounded-lg bg-slate-800 text-slate-300 text-xs font-bold hover:bg-brand-gold/20 hover:text-brand-gold transition-all flex items-center justify-center gap-1.5">
+                                <i data-lucide="star" class="w-3 h-3"></i>10 Dias de Oração
+                            </button>
+                            <button onclick="App._setEventPreset('mes')" class="py-2 rounded-lg bg-slate-800 text-slate-300 text-xs font-bold hover:bg-brand-gold/20 hover:text-brand-gold transition-all flex items-center justify-center gap-1.5">
+                                <i data-lucide="calendar" class="w-3 h-3"></i>Mês Atual
+                            </button>
+                            <button onclick="App._setEventPreset('quinzena')" class="py-2 rounded-lg bg-slate-800 text-slate-300 text-xs font-bold hover:bg-brand-gold/20 hover:text-brand-gold transition-all flex items-center justify-center gap-1.5">
+                                <i data-lucide="calendar-days" class="w-3 h-3"></i>Quinzena
+                            </button>
+                            <button onclick="App._setEventPreset('custom')" class="py-2 rounded-lg bg-slate-800 text-slate-300 text-xs font-bold hover:bg-brand-gold/20 hover:text-brand-gold transition-all flex items-center justify-center gap-1.5">
+                                <i data-lucide="sliders" class="w-3 h-3"></i>Personalizado
+                            </button>
+                        </div>
+                        <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase">Nome do Evento (opcional)</label>
+                        <input type="text" id="evento-name" placeholder="Ex: Acampamento de Verão 2026"
+                               class="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-brand-gold mb-2">
+                        <div class="flex gap-2">
+                            <input type="date" id="evento-start" value="${start}" max="${todayKey}"
+                                   class="flex-1 px-2 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-slate-200 text-sm focus:outline-none focus:border-brand-gold">
+                            <input type="date" id="evento-end" value="${end}" max="${todayKey}"
+                                   class="flex-1 px-2 py-1.5 bg-slate-950 border border-slate-700 rounded-lg text-slate-200 text-sm focus:outline-none focus:border-brand-gold">
+                        </div>
+                    </div>
+                    <button onclick="App._runEventReport()"
+                            class="w-full py-3 bg-brand-gold text-slate-900 rounded-xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 active:scale-95 transition-all">
+                        <i data-lucide="bar-chart-2" class="w-4 h-4"></i> Gerar Relatório do Evento
+                    </button>
+                </div>
+                <div id="evento-results"></div>
+            </div>
+        `;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+},
+
+_setEventPreset(preset) {
+    const today = new Date();
+    const end = today.toISOString().split('T')[0];
+    let start, name;
+    if (preset === '10dias') {
+        const d = new Date(today); d.setDate(d.getDate() - 9);
+        start = d.toISOString().split('T')[0]; name = '10 Dias de Oração';
+    } else if (preset === 'mes') {
+        start = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
+        name = `Mês ${today.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}`;
+    } else if (preset === 'quinzena') {
+        const d = new Date(today); d.setDate(d.getDate() - 14);
+        start = d.toISOString().split('T')[0]; name = 'Quinzena';
+    } else { document.getElementById('evento-start')?.focus(); return; }
+    const s = document.getElementById('evento-start');
+    const e = document.getElementById('evento-end');
+    const n = document.getElementById('evento-name');
+    if (s) s.value = start;
+    if (e) e.value = end;
+    if (n && name) n.value = name;
+},
+
+    async _runEventReport() {
+    const start = document.getElementById('evento-start')?.value;
+    const end = document.getElementById('evento-end')?.value;
+    const evName = document.getElementById('evento-name')?.value?.trim() || 'Evento';
+    const resultsEl = document.getElementById('evento-results');
+    if (!start || !end || !resultsEl) return;
+    if (new Date(start) > new Date(end)) { Toast.show('Data inicial maior que a final', 'error'); return; }
+
+    resultsEl.innerHTML = `<div class="flex justify-center py-8 text-slate-500"><i data-lucide="loader" class="w-6 h-6 animate-spin"></i></div>`;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+
+    Loading.show('Agregando dados do evento...');
+    await Store.fetchScoresRange(start, end);
+    Loading.hide();
+
+    const allScores = await Store.getScores();
+    const members = await Store.getMembers();
+    const units = await Store.getUnits();
+
+    const dates = [];
+    for (let d = new Date(start + 'T12:00:00'); d <= new Date(end + 'T12:00:00'); d.setDate(d.getDate() + 1)) {
+        dates.push(d.toISOString().split('T')[0]);
+    }
+
+    const rows = members.map(member => {
+        const unit = units.find(u => u.id === member.unitId);
+        let presences = 0, absences = 0, totalPts = 0;
+        const itemCounts = {};
+        CONFIG.SCORE_ITEMS.forEach(item => { itemCounts[item.id] = 0; });
+        dates.forEach(dateKey => {
+            const score = (allScores[dateKey] || {})[member.id];
+            if (!score) return;
+            if (score.isAbsent) { absences++; }
+            else {
+                presences++; totalPts += Utils.countTotal(score);
+                if (score.items) CONFIG.SCORE_ITEMS.forEach(item => { if (score.items[item.id] === true) itemCounts[item.id]++; });
+            }
+        });
+        return { member, unit, presences, absences, totalPts, itemCounts, total: presences + absences };
+    }).filter(r => r.total > 0).sort((a, b) => b.totalPts - a.totalPts);
+
+    if (rows.length === 0) {
+        resultsEl.innerHTML = `<div class="bg-slate-900 rounded-2xl border border-slate-800 p-8 text-center"><i data-lucide="inbox" class="w-10 h-10 text-slate-700 mx-auto mb-3"></i><p class="text-slate-400 font-bold">Nenhum dado encontrado</p><p class="text-slate-600 text-sm mt-1">Nenhum lançamento neste período.</p></div>`;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        return;
+    }
+
+    resultsEl.innerHTML = `
+            <div class="space-y-3">
+                <div class="bg-slate-900 rounded-2xl border border-brand-gold/30 p-4">
+                    <div class="flex items-center gap-2 mb-3">
+                        <i data-lucide="calendar-range" class="w-4 h-4 text-brand-gold"></i>
+                        <h3 class="font-black text-white text-sm uppercase tracking-wider truncate">${evName}</h3>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 text-center">
+                        <div class="bg-slate-950 rounded-xl p-2 border border-slate-800">
+                            <p class="text-[10px] text-slate-500 uppercase font-bold">De</p>
+                            <p class="text-xs font-black text-white">${Utils.formatDate(start)}</p>
+                        </div>
+                        <div class="bg-slate-950 rounded-xl p-2 border border-slate-800">
+                            <p class="text-[10px] text-slate-500 uppercase font-bold">Até</p>
+                            <p class="text-xs font-black text-white">${Utils.formatDate(end)}</p>
+                        </div>
+                        <div class="bg-slate-950 rounded-xl p-2 border border-slate-800">
+                            <p class="text-[10px] text-slate-500 uppercase font-bold">Membros</p>
+                            <p class="text-xl font-black text-brand-gold">${rows.length}</p>
+                        </div>
+                    </div>
+                </div>
+                ${rows.map((r, idx) => {
+        const pct = r.total > 0 ? Math.round((r.presences / r.total) * 100) : 0;
+        const barCol = pct >= 80 ? 'bg-green-500' : pct >= 50 ? 'bg-yellow-500' : 'bg-red-500';
+        const pctCol = pct >= 80 ? 'text-green-400' : pct >= 50 ? 'text-yellow-400' : 'text-red-400';
+        const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : (idx + 1) + 'º';
+        return `
+                    <div class="bg-slate-900 rounded-2xl border border-slate-700 overflow-hidden">
+                        <div class="flex items-center gap-3 p-3 border-b border-slate-800">
+                            <div class="w-9 h-9 rounded-full bg-brand-gold/10 border border-brand-gold/20 flex items-center justify-center text-xs font-black text-brand-gold shrink-0">
+                                ${Sanitizer.normalizeName(r.member.name).split(' ').map(n => n[0]).slice(0, 2).join('')}
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="font-black text-white text-sm truncate">${medal} ${Sanitizer.normalizeName(r.member.name)}</p>
+                                <p class="text-[10px] text-slate-500 font-bold uppercase">${r.unit?.name || '—'}</p>
+                            </div>
+                            <span class="text-base font-black text-brand-gold shrink-0">${r.totalPts} pts</span>
+                        </div>
+                        <div class="grid grid-cols-3 divide-x divide-slate-800 border-b border-slate-800">
+                            <div class="text-center py-2"><p class="text-[10px] font-bold text-slate-500 uppercase">Presenças</p><p class="font-black text-green-400">${r.presences}</p></div>
+                            <div class="text-center py-2"><p class="text-[10px] font-bold text-slate-500 uppercase">Faltas</p><p class="font-black text-red-400">${r.absences}</p></div>
+                            <div class="text-center py-2"><p class="text-[10px] font-bold text-slate-500 uppercase">Frequência</p><p class="font-black ${pctCol}">${pct}%</p></div>
+                        </div>
+                        <div class="px-3 py-1.5">
+                            <div class="h-1.5 bg-slate-800 rounded-full overflow-hidden"><div class="${barCol} h-1.5 rounded-full" style="width:${pct}%"></div></div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-1.5 p-3 pt-1">
+                            ${CONFIG.SCORE_ITEMS.map(item => {
+            const cnt = r.itemCounts[item.id];
+            const ip = r.presences > 0 ? Math.round((cnt / r.presences) * 100) : 0;
+            const bc = ip >= 80 ? 'bg-green-500' : ip >= 50 ? 'bg-yellow-500' : 'bg-red-500';
+            const tc = ip >= 80 ? 'text-green-400' : ip >= 50 ? 'text-yellow-400' : 'text-red-400';
+            return '<div class="bg-slate-950 rounded-lg p-2 border border-slate-800"><div class="flex justify-between items-center mb-1"><p class="text-[10px] font-bold text-slate-400 truncate">' + item.name + '</p><span class="text-[10px] font-black ' + tc + ' ml-1 shrink-0">' + cnt + '/' + r.presences + '</span></div><div class="h-1 bg-slate-800 rounded-full overflow-hidden"><div class="' + bc + ' h-1 rounded-full" style="width:' + ip + '%"></div></div></div>';
+        }).join('')}
+                        </div>
+                    </div>`;
+    }).join('')}
+            </div>
+        `;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+},
+
 
     // ── Legacy exports (kept for compatibility) ──────────────────────────────
     async exportToCSV() {

@@ -1,17 +1,18 @@
 // Service Worker for Barão de Mauá PWA - IMPROVED VERSION
 // Auto-update with network-first strategy for critical files
 
-const CACHE_VERSION = '2026.03.02.001'; // feat: granular item reports
+const CACHE_VERSION = '2026.03.02.002'; // fix: network-first for all JS modules + por-evento report
 const CACHE_NAME = `desbravadores-v${CACHE_VERSION}`;
 const RUNTIME_CACHE = `desbravadores-runtime-v${CACHE_VERSION}`;
 
-// Critical files that should ALWAYS be fetched from network first
+// All JS app modules + critical files -- always fetch from network, cache only as offline fallback
 const NETWORK_FIRST_FILES = [
     '/app.js',
     '/photo-manager.js',
     '/config.js',
     '/version.json',
-    '/api/env'
+    '/api/env',
+    '/src/',       // all modules in /src/** (modules, core, data, ui, utils, config)
 ];
 
 // Assets to cache on install
@@ -67,7 +68,7 @@ self.addEventListener('activate', (event) => {
 
 // Helper: Check if URL should use network-first strategy
 function shouldUseNetworkFirst(url) {
-    return NETWORK_FIRST_FILES.some(file => url.includes(file));
+    return NETWORK_FIRST_FILES.some(pattern => url.includes(pattern));
 }
 
 // Helper: Check if request is for Supabase
