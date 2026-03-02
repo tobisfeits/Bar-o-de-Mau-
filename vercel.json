@@ -1,6 +1,4 @@
 {
-  "buildCommand": "npm run build",
-  "outputDirectory": "./",
   "framework": null,
   "rewrites": [
     {
@@ -11,36 +9,6 @@
   "headers": [
     {
       "source": "/index.html",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, no-store, must-revalidate, max-age=0"
-        },
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        },
-        {
-          "key": "X-Frame-Options",
-          "value": "DENY"
-        },
-        {
-          "key": "X-XSS-Protection",
-          "value": "1; mode=block"
-        }
-      ]
-    },
-    {
-      "source": "/app.js",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, no-store, must-revalidate, max-age=0"
-        }
-      ]
-    },
-    {
-      "source": "/version.json",
       "headers": [
         {
           "key": "Cache-Control",
@@ -58,7 +26,7 @@
       ]
     },
     {
-      "source": "/src/**/*.js",
+      "source": "/version.json",
       "headers": [
         {
           "key": "Cache-Control",
@@ -67,7 +35,16 @@
       ]
     },
     {
-      "source": "/**/*.js",
+      "source": "/src/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate, max-age=0"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)\\.js",
       "headers": [
         {
           "key": "Cache-Control",
@@ -81,20 +58,8 @@
         {
           "key": "Cache-Control",
           "value": "public, max-age=86400, must-revalidate"
-        },
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        },
-        {
-          "key": "X-Frame-Options",
-          "value": "DENY"
-        },
-        {
-          "key": "X-XSS-Protection",
-          "value": "1; mode=block"
         }
       ]
     }
   ]
-}
+}
