@@ -167,7 +167,7 @@ export const ScoringMethods = {
                                             id="toggle-${item.id}"
                                             data-state="${itemValue}"
                                             style="background-color: ${currentBg};"
-                                            class="relative w-16 h-8 rounded-full transition-colors duration-200 flex-shrink-0 flex items-center shadow-inner overflow-hidden"
+                                            class="relative w-16 h-8 rounded-full transition-colors duration-200 flex-shrink-0 flex items-center shadow-inner overflow-hidden ${item.id === 'presence' ? 'opacity-80 pointer-events-none cursor-not-allowed' : ''}"
                                             aria-pressed="${itemValue}">
                                         
                                         <!-- Knob -->
@@ -334,6 +334,7 @@ export const ScoringMethods = {
         if (status === 'pending') {
             container.classList.add('opacity-40', 'pointer-events-none');
             container.classList.remove('grayscale', 'opacity-30');
+            this.setItemPoint('presence', false);
         } else if (status === 'absent') {
             // Master trigger: marking as absent sets all items to false and disables UI
             CONFIG.SCORE_ITEMS.forEach(item => this.setItemPoint(item.id, false));
@@ -344,6 +345,7 @@ export const ScoringMethods = {
             this.triggerAutoSave(memberId);
         } else {
             container.classList.remove('opacity-40', 'pointer-events-none', 'grayscale', 'opacity-30');
+            this.setItemPoint('presence', true);
             // Trigger auto-save if changing to present as well
             this.triggerAutoSave(memberId);
         }
