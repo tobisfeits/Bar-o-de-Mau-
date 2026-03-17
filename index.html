@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- VERCEL_FORCE_BUILD: 2026.03.17.031 -->
+    <title>Barão de Mauá - Sistema de Pontuação</title>
+
+    <!-- Prevent white flash: Force dark mode immediately -->
+    <style>
+        html,
+        body {
+            background-color: #0f172a !important;
+            color: #e2e8f0 !important;
+        }
+    </style>
+
+    <link rel="icon" type="image/png" href="logo_barao_maua.png">
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+
+    <!-- Theme Colors -->
+    <meta name="theme-color" content="#1e3a8a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Barão Mauá">
+
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" href="/icons/icon-192.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-192.png">
+    <link rel="apple-touch-icon" sizes="167x167" href="/icons/icon-192.png">
+
+    <!-- PWA Description -->
+    <meta name="description" content="Sistema de pontuação para Clube de Desbravadores Barão de Mauá">
+
+    <!-- Content Security Policy -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; 
+                   script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://cdn.sheetjs.com;
+                   style-src 'self' 'unsafe-inline';
+                   img-src 'self' data: https:;
+                   font-src 'self' data:;
+                   connect-src 'self' https://*.supabase.co https://cdn.jsdelivr.net https://unpkg.com https://cdn.sheetjs.com;
+                   frame-src 'none';
+                   object-src 'none';
+                   base-uri 'self';">
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://barao-maua-pontuacao.vercel.app/">
+    <meta property="og:title" content="Barão de Mauá - Sistema de Pontuação">
+    <meta property="og:description" content="Sistema de pontuação para Clube de Desbravadores Barão de Mauá">
+    <meta property="og:image" content="https://barao-maua-pontuacao.vercel.app/fotos/barao-logo.png">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://barao-maua-pontuacao.vercel.app/">
+    <meta property="twitter:title" content="Barão de Mauá - Sistema de Pontuação">
+    <meta property="twitter:description" content="Sistema de pontuação para Clube de Desbravadores Barão de Mauá">
+    <meta property="twitter:image" content="https://barao-maua-pontuacao.vercel.app/fotos/barao-logo.png">
+
+    <!-- Supabase Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Chart.js for graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+
+
+    <!-- Lucide Icons (CRITICAL: Required for UI rendering) -->
+    <script src="https://unpkg.com/lucide@0.310.0"></script>
+
+    <!-- Tailwind CSS (Pre-compiled Production Build) -->
+    <link rel="stylesheet" href="dist/output.css">
+
+
+    <!-- Simple PIN Hasher (Web Crypto API - No external dependencies) -->
+    <script type="module" src="src/core/simple-pin-hasher.js"></script>
+</head>
+
+<body class="min-h-screen" style="background-color: var(--bg-primary);">
+    <!-- App Container -->
+    <div id="app-container"></div>
+
+    <!-- Main Application Module -->
+    <script type="module" src="src/main.js"></script>
+
+    <!-- PWA Service Worker Registration -->
+    <script>
+        const APP_VERSION = '2026.03.17.031'; // v31 - Binary Switch Roadmap
+
+        // NUCLEAR CACHE CLEAR: If version doesn't match last stored, wipe everything
+        if (localStorage.getItem('cd_app_version') !== APP_VERSION) {
+            console.warn('🚨 EMERGENCY RECOVERY: Version mismatch! Clearing all caches...');
+            if ('caches' in window) {
+                caches.keys().then(names => {
+                    for (let name of names) caches.delete(name);
+                });
+            }
+            localStorage.setItem('cd_app_version', APP_VERSION);
+            // Don't reload immediately to allow SW to register below
+        }
+
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                // Change the registration URL version to force a real re-fetch
+                navigator.serviceWorker.register('/service-worker.js?v=' + APP_VERSION)
+                    .then((registration) => {
+                        console.log('✅ Service Worker registered successfully (v' + APP_VERSION + '):', registration.scope);
+
+                        registration.addEventListener('updatefound', () => {
+                            const newWorker = registration.installing;
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    console.log('🔄 New version available! Force refreshing...');
+                                    window.location.reload();
+                                }
+                            });
+                        });
+                    })
+                    .catch((error) => {
+                        console.error('❌ Service Worker registration failed:', error);
+                    });
+            });
+        }
+    </script>
+</body>
+
+</html>

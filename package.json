@@ -1,0 +1,13 @@
+{
+    "name": "barao-de-maua",
+    "version": "1.0.0",
+    "private": true,
+    "description": "Sistema de Pontuação - Clube de Desbravadores Barão de Mauá",
+    "scripts": {
+        "build_css": "npx tailwindcss -i ./src/input.css -o ./dist/output.css --minify",
+        "dev_css": "npx tailwindcss -i ./src/input.css -o ./dist/output.css --watch"
+    },
+    "devDependencies": {
+        "tailwindcss": "^3.4.1"
+    }
+}
