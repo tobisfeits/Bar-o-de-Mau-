@@ -1,6 +1,9 @@
 import { DataAdapter } from '../data/repository.js';
 import { CONFIG } from '../config/constants.js';
 
+// ID of the test unit seeded in production — used for global exclusion
+const TEST_UNIT_ID = 'u_TEST_999';
+
 export const RBAC = {
     // Current user data with role and unit
     currentUser: null,
@@ -237,6 +240,12 @@ export const RBAC = {
      * @returns {Array} Filtered members
      */
     filterMembers(members) {
+        // Global exclusion: hide test unit members from everyone except Tobias
+        const isTobias = this.currentUser?.name === 'Tobias';
+        if (!isTobias) {
+            members = members.filter(m => m.unitId !== TEST_UNIT_ID);
+        }
+
         if (this.isSuperAdmin()) return members;
 
         if (this.isConselheiro()) {
