@@ -3,6 +3,7 @@ import { DataAdapter } from './repository.js';
 import { Cache } from './cache.js';
 import { DevStorage } from './dev-storage.js';
 import { RBAC } from '../core/auth.js';
+import { Sanitizer } from '../utils/sanitizer.js';
 
 export const Store = {
     get(key) {
@@ -236,10 +237,11 @@ export const Store = {
     },
 
     async addMember(name, unitId) {
+        const normalizedName = Sanitizer.normalizeName(name.trim());
         const members = await this.getMembers();
         const newMember = {
             id: 'm' + Date.now(),
-            name,
+            name: normalizedName,
             unitId,
             image: null
         };

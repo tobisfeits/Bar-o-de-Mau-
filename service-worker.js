@@ -1,7 +1,7 @@
 // Service Worker for Barão de Mauá PWA - IMPROVED VERSION
 // Auto-update with network-first strategy for critical files
 
-const CACHE_VERSION = '2026.03.17.031'; // v31 - Stale-While-Revalidate + Binary Toggle Toggle
+const CACHE_VERSION = '2026.03.22.036'; // v36 - Cache Invalidation Fix
 const CACHE_NAME = `desbravadores-v${CACHE_VERSION}`;
 const RUNTIME_CACHE = `desbravadores-runtime-v${CACHE_VERSION}`;
 
@@ -11,6 +11,7 @@ const NETWORK_FIRST_FILES = [
     '/src/ui/photo-manager.js',
     '/src/config/env.js',
     '/version.json',
+    '/index.html', // Guarantee that index.html is always fresh
     '/src/',       // all modules in /src/**
 ];
 
