@@ -63,11 +63,12 @@ export const ReportMethods = {
                     </button>
                 </div>
 
-                <!-- 2 Main Tabs -->
+                <!-- 3 Main Tabs -->
                 <div class="flex bg-slate-900 p-1 rounded-xl mb-5 gap-1">
                     ${[
                 { id: 'visao-geral', icon: 'layout-dashboard', label: 'Visão Geral' },
                 { id: 'consultas', icon: 'search', label: 'Consultas' },
+                { id: 'auditoria', icon: 'shield-alert', label: 'Auditoria' },
             ].map(t => `
                         <button onclick="App.setReportTab('${t.id}')" id="rpt-tab-${t.id}"
                                 class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-lg font-bold text-sm transition-all
@@ -91,7 +92,7 @@ export const ReportMethods = {
     setReportTab(tab) {
         this._activeReportTab = tab;
         // Update tab button styles
-        ['visao-geral', 'consultas'].forEach(t => {
+        ['visao-geral', 'consultas', 'auditoria'].forEach(t => {
             const btn = document.getElementById(`rpt-tab-${t}`);
             if (!btn) return;
             if (t === tab) {
@@ -118,6 +119,7 @@ export const ReportMethods = {
         switch (this._activeReportTab) {
             case 'visao-geral': await this._renderVisaoGeral(container, start, end); break;
             case 'consultas': await this._renderConsultas(container, start, end); break;
+            case 'auditoria': await this._renderAuditoria(container); break;
         }
         if (typeof lucide !== 'undefined') lucide.createIcons();
     },
@@ -1405,4 +1407,124 @@ export const ReportMethods = {
         a.click();
         Toast.show('CSV exportado!', 'success');
     },
+
+    // ── Tab 3: Auditoria (Board Reporting) ──────────────────────────────────
+    async _renderAuditoria(container) {
+        Loading.show('Gerando Auditoria...');
+        
+        try {
+            const allMembers = await Store.getMembers();
+            const allUnits = await Store.getUnits();
+            const allScores = await Store.getScores();
+            const meetings = await Store.getMeetings();
+
+            // Filter Active Members & Map Units (excluding TESTE globally)
+            const visibleUnits = RBAC.filterUnits(allUnits);
+            const visibleUnitIds = new Set(visibleUnits.map(u => u.id));
+            const unitMap = {};
+            visibleUnits.forEach(u => unitMap[u.id] = u.name);
+
+            const activeMembers = allMembers.filter(m => 
+                m.active !== false && 
+                !m.isCounselor && 
+                visibleUnitIds.has(m.unitId)
+            );
+
+            // Generate Cross-Join Data
+            const auditData = [];
+            const sortedMeetings = [...meetings].sort((a, b) => b.date.localeCompare(a.date));
+
+            for (const meeting of sortedMeetings) {
+                const dateKey = meeting.date;
+                const meetingScores = allScores[dateKey] || {};
+
+                for (const member of activeMembers) {
+                    const score = meetingScores[member.id];
+                    let statusLabel = '';
+                    let statusClass = '';
+                    let author = 'N/A';
+
+                    if (!score) {
+                        statusLabel = '🔴 PENDENTE';
+                        statusClass = 'bg-red-500/10 text-red-500 border-red-500/30 shadow-inner shadow-red-500/10';
+                    } else if (score.isAbsent) {
+                        statusLabel = '❌ AUSENTE';
+                        statusClass = 'bg-slate-800 text-orange-400 border-orange-500/30';
+                        author = score.createdBy || 'Sistema';
+                    } else {
+                        statusLabel = '✅ PRESENTE';
+                        statusClass = 'bg-green-500/10 text-green-400 border-green-500/30';
+                        author = score.createdBy || 'Sistema';
+                    }
+
+                    auditData.push({
+                        date: dateKey,
+                        unit: unitMap[member.unitId] || 'Sem Unidade',
+                        name: member.name,
+                        statusLabel,
+                        statusClass,
+                        author
+                    });
+                }
+            }
+
+            // Render Table HTML
+            let rowsHtml = '';
+            if (auditData.length === 0) {
+                rowsHtml = `<tr><td colspan="5" class="py-4 text-center text-slate-500 text-sm">Nenhum dado auditável encontrado nas reuniões oficiais.</td></tr>`;
+            } else {
+                rowsHtml = auditData.map(row => `
+                    <tr class="border-b border-slate-800/80 hover:bg-slate-800 transition-colors">
+                        <td class="px-3 py-3 whitespace-nowrap text-[11px] text-slate-400 font-medium">${Utils.formatDate(row.date)}</td>
+                        <td class="px-3 py-3 whitespace-nowrap text-[11px] font-bold text-brand-gold/80">${row.unit}</td>
+                        <td class="px-3 py-3 whitespace-nowrap text-xs text-slate-200 max-w-[140px] truncate" title="${Sanitizer.normalizeName(row.name)}">${Sanitizer.normalizeName(row.name)}</td>
+                        <td class="px-3 py-3 whitespace-nowrap text-xs font-black">
+                            <span class="px-2 py-1 rounded-md border ${row.statusClass} text-[9px] tracking-wider uppercase flex items-center w-fit">${row.statusLabel}</span>
+                        </td>
+                        <td class="px-3 py-3 whitespace-nowrap text-[10px] text-slate-500 truncate max-w-[90px]" title="${row.author}">${row.author.replace('Sistema ','')}</td>
+                    </tr>
+                `).join('');
+            }
+
+            container.innerHTML = `
+                <div class="space-y-4 animate-fade-in pb-8">
+                    <div class="flex items-center justify-between mb-4">
+                        <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                            <i data-lucide="shield-alert" class="w-3 h-3 text-red-500/70"></i>Auditoria Board
+                        </p>
+                        <span class="text-[10px] bg-slate-800 text-brand-gold font-bold px-2 py-0.5 rounded-full border border-slate-700">Records: ${auditData.length}</span>
+                    </div>
+
+                    <div class="bg-slate-900 border border-slate-700 rounded-xl overflow-hidden shadow-2xl">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left">
+                                <thead class="bg-slate-950 border-b border-slate-700">
+                                    <tr>
+                                        <th class="px-3 py-2.5 text-[10px] font-black uppercase text-slate-500 tracking-wider">Data</th>
+                                        <th class="px-3 py-2.5 text-[10px] font-black uppercase text-slate-500 tracking-wider">Unidade</th>
+                                        <th class="px-3 py-2.5 text-[10px] font-black uppercase text-slate-500 tracking-wider">Membro</th>
+                                        <th class="px-3 py-2.5 text-[10px] font-black uppercase text-slate-500 tracking-wider">Status Real</th>
+                                        <th class="px-3 py-2.5 text-[10px] font-black uppercase text-slate-500 tracking-wider">Assinatura</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${rowsHtml}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="mt-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+                        <p class="text-[10px] text-blue-300 leading-relaxed font-medium">🛡️ <strong>Integridade Garantida:</strong> Esta tabela engloba 100% dos relatórios oficiais baseados no cruzamento das reuniões agendadas vs base de Desbravadores. Oculta automaticamente Unidades de Teste e Conselheiros.</p>
+                    </div>
+                </div>
+            `;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+
+        } catch (error) {
+            console.error('Erro ao renderizar auditoria:', error);
+            container.innerHTML = `<div class="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-center text-sm font-bold">Falha de Memória ao montar Data Table.</div>`;
+        } finally {
+            Loading.hide();
+        }
+    }
 };
