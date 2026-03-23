@@ -440,12 +440,19 @@ export const DataAdapter = {
     async saveMeeting(meetingData) {
         if (this.useSupabase()) {
             try {
+                // Ensure UUID format for Supabase (local mocks like "u4" crash PostgreSQL uuid fields)
+                const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[4][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+                if (meetingData.created_by_id && !uuidRegex.test(meetingData.created_by_id)) {
+                    meetingData.created_by_id = null;
+                }
+
                 const { error } = await window.supabaseClient
                     .from('meetings')
                     .upsert(meetingData, { onConflict: 'date' });
                 if (error) throw error;
             } catch (error) {
                 console.error('Erro ao salvar reunião (Supabase):', error);
+                // enqueue on fail
                 SyncManager.enqueue('SAVE_MEETING', meetingData);
             }
         }
@@ -459,7 +466,7 @@ export const DataAdapter = {
             meetings.push(meetingData);
         }
         DevStorage.set(CONFIG.STORAGE_KEYS.MEETINGS, meetings);
-        Cache.remove('meetings');
+        Cache.invalidate('meetings');
     },
 
     // SCORE SESSION LOGS (for admin 24h pending audit widget)
