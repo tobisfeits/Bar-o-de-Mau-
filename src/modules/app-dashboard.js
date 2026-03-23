@@ -91,6 +91,7 @@ export const DashboardMethods = {
             const todayKey = App.currentDate;
             const allUnits = await Store.getUnits();
             const allScores = await Store.getScores();
+            const allMembers = await Store.getMembers(); // Load members for stats
 
             // Check birthdays
             const birthdays = await this.checkBirthdays();
@@ -163,6 +164,9 @@ export const DashboardMethods = {
 
                     <!-- Pending Alerts Area -->
                     <div id="dashboard-alerts" class="mb-4 space-y-2"></div>
+
+                    <!-- Missed Attendance Widget -->
+                    <div id="missed-attendance-widget" class="mb-4"></div>
 
                     <!-- Search / Filter -->
                     <div class="mb-6 relative">
@@ -260,6 +264,14 @@ export const DashboardMethods = {
             if (typeof lucide !== 'undefined') lucide.createIcons();
             this.toggleNavigation(true);
 
+            // Calculate missed attendance
+            const activeMembers = allMembers.filter(m => m.active !== false && !m.is_counselor);
+            const todayScores = allScores[todayKey] || {};
+            const missedList = activeMembers.filter(m => !todayScores[m.id]);
+            const totalPresent = activeMembers.length - missedList.length;
+            
+            this.updateMissedAttendanceWidget(missedList, totalPresent);
+
             // Check for pending roll calls on meetings
             this.checkPendingRollCalls(todayKey, visibleUnits, allScores);
 
@@ -320,6 +332,59 @@ export const DashboardMethods = {
         };
 
         SyncManager.setStatusListener(updateUI);
+    },
+
+    updateMissedAttendanceWidget(missedList, totalPresent) {
+        const missedCount = missedList.length;
+        const widgetContainer = document.getElementById('missed-attendance-widget');
+        if (!widgetContainer) return;
+
+        if (missedCount > 0) {
+            // Change text from '100% Atualizado' to alert
+            widgetContainer.innerHTML = `
+                <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 mb-4">
+                    <div class="flex items-start gap-4">
+                        <i data-lucide="alert-triangle" class="w-6 h-6 text-yellow-500 mt-1 flex-shrink-0"></i>
+                        <div class="flex-1">
+                            <p class="text-sm text-yellow-200 font-medium"><strong>Atenção:</strong> Falta preencher a chamada de <strong>${missedCount}</strong> desbravador(es).</p>
+                            ${missedCount > 0 ? `<p class="text-xs text-yellow-500/70 mt-1">Ex: ${missedList[0].name}</p>` : ''}
+                            <button onclick="App.navigate('attendance')" class="mt-3 bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-500 border border-yellow-500/50 text-xs font-bold px-3 py-1.5 rounded transition-colors uppercase">
+                                Preencher Agora
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else if (totalPresent === 0) {
+            // Handle case where no attendance has started yet
+            widgetContainer.innerHTML = `
+                <div class="bg-blue-500/10 border border-blue-500/30 rounded-xl p-4 mb-4">
+                    <div class="flex items-start gap-4">
+                        <i data-lucide="info" class="w-6 h-6 text-blue-400 mt-1 flex-shrink-0"></i>
+                        <div class="flex-1">
+                            <p class="text-sm text-blue-200 font-medium">Nenhuma chamada realizada hoje.</p>
+                            <button onclick="App.navigate('attendance')" class="mt-3 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 border border-blue-500/50 text-xs font-bold px-3 py-1.5 rounded transition-colors uppercase">
+                                Iniciar Chamada
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else {
+            // Show success state
+            widgetContainer.innerHTML = `
+                <div class="bg-green-500/10 border border-green-500/30 rounded-xl p-4 mb-4">
+                    <div class="flex items-center gap-4">
+                        <i data-lucide="check-circle" class="w-8 h-8 text-green-400 shadow-sm rounded-full bg-green-900/40"></i>
+                        <div>
+                            <p class="text-sm text-green-200 font-bold">Chamada 100% Concluída!</p>
+                            <p class="text-xs text-green-500/70 mt-1">Todos os ${totalPresent} desbravadores foram avaliados.</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        if (typeof lucide !== 'undefined') lucide.createIcons();
     },
 
     async registerMeeting(date) {
