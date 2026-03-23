@@ -148,6 +148,11 @@ export const DashboardMethods = {
                         
                         ${RBAC.isSuperAdmin() ? `
                             <div class="flex gap-2">
+                                <button onclick="App.exportAttendanceGaps()" 
+                                        class="bg-slate-800 text-blue-400 p-2 rounded-xl hover:bg-slate-700 transition-colors shadow-lg border border-slate-700 flex items-center justify-center"
+                                        title="Exportar Relatório de Faltas (CSV)">
+                                    <i data-lucide="download" class="w-6 h-6"></i>
+                                </button>
                                 <a href="admin-deleted-members.html" 
                                    class="bg-slate-800 text-red-400 p-2 rounded-xl hover:bg-slate-700 transition-colors shadow-lg border border-slate-700 flex items-center justify-center"
                                    title="Lixeira de Membros">
@@ -451,6 +456,86 @@ export const DashboardMethods = {
             if (labelEl) labelEl.classList.add('hidden');
             if (btnRegister) btnRegister.classList.remove('hidden');
             if (alertArea) alertArea.innerHTML = '';
+        }
+    },
+
+    async exportAttendanceGaps() {
+        try {
+            Loading.show('Gerando CSV de Faltas...');
+            
+            // 1. Fetch data
+            const allMembers = await Store.getMembers();
+            const allUnits = await Store.getUnits();
+            const allScores = await Store.getScores();
+            const meetings = await Store.getMeetings();
+            
+            // 2. Filter Active Members and Map their Units
+            // Global Filtering: Only get units allowed by RBAC
+            const visibleUnits = RBAC.filterUnits(allUnits);
+            const visibleUnitIds = new Set(visibleUnits.map(u => u.id));
+            
+            const activeMembers = allMembers.filter(m => 
+                m.active !== false && 
+                !m.isCounselor && 
+                visibleUnitIds.has(m.unitId)
+            );
+            
+            const unitMap = {};
+            visibleUnits.forEach(u => unitMap[u.id] = u.name);
+            
+            // 3. Find Missing Attendance (Gaps)
+            const gapData = [];
+            
+            // Sort meetings by date DESC
+            const sortedMeetings = [...meetings].sort((a, b) => b.date.localeCompare(a.date));
+            
+            for (const meeting of sortedMeetings) {
+                const dateKey = meeting.date;
+                const meetingScores = allScores[dateKey] || {};
+                
+                for (const member of activeMembers) {
+                    if (!meetingScores[member.id]) {
+                        gapData.push({
+                            member_name: member.name,
+                            unit_name: unitMap[member.unitId] || 'Sem Unidade',
+                            missing_date: dateKey
+                        });
+                    }
+                }
+            }
+            
+            if (gapData.length === 0) {
+                Toast.show('Nenhuma falta encontrada nas reuniões oficiais!', 'success');
+                return;
+            }
+            
+            // 4. Generate CSV
+            const headers = ['Nome', 'Unidade', 'Data da Falta'];
+            const csvRows = [headers.join(',')];
+            
+            gapData.forEach(row => {
+                csvRows.push(`"${row.member_name}","${row.unit_name}","${row.missing_date}"`);
+            });
+            
+            // Add BOM for Excel UTF-8 support
+            const csvContent = '\\uFEFF' + csvRows.join('\\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", `faltas_detalhadas.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            Toast.show('Relatório CSV exportado com sucesso!', 'success');
+            
+        } catch (error) {
+            console.error('Erro na exportação:', error);
+            Toast.show('Falha ao exportar CSV', 'error');
+        } finally {
+            Loading.hide();
         }
     }
 };
