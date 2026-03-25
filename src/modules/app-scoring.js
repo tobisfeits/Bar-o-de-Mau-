@@ -44,6 +44,16 @@ export const ScoringMethods = {
             return;
         }
 
+        // --- NEW: Calendar-Driven Event Check (v44.1) ---
+        const meetings = await Store.getMeetings();
+        const isOfficialMeeting = meetings.some(m => m.date === dateKey);
+
+        if (!isOfficialMeeting) {
+            Toast.show('⛔ Acesso Negado: Nenhuma Reunião Oficial no Calendário.', 'error');
+            this.navigate('dashboard');
+            return;
+        }
+
 
         const score = await Store.getMemberScore(memberId, dateKey) || { items: {} };
         const unit = (await Store.getUnits()).find(u => u.id === member.unitId);

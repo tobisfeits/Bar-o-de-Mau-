@@ -275,7 +275,11 @@ export const DashboardMethods = {
             const missedList = activeMembers.filter(m => !todayScores[m.id]);
             const totalPresent = activeMembers.length - missedList.length;
             
-            this.updateMissedAttendanceWidget(missedList, totalPresent);
+            // Check calendar
+            const meetings = await Store.getMeetings();
+            const isMeetingDay = meetings.some(m => m.date === todayKey);
+
+            this.updateMissedAttendanceWidget(missedList, totalPresent, isMeetingDay);
 
             // Check for pending roll calls on meetings
             this.checkPendingRollCalls(todayKey, visibleUnits, allScores);
@@ -339,10 +343,22 @@ export const DashboardMethods = {
         SyncManager.setStatusListener(updateUI);
     },
 
-    updateMissedAttendanceWidget(missedList, totalPresent) {
+    updateMissedAttendanceWidget(missedList, totalPresent, isMeetingDay = true) {
         const missedCount = missedList.length;
         const widgetContainer = document.getElementById('missed-attendance-widget');
         if (!widgetContainer) return;
+
+        if (!isMeetingDay) {
+            widgetContainer.innerHTML = `
+                <div class="bg-slate-800/40 border border-slate-700/50 rounded-xl p-4 mb-4 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <i data-lucide="calendar-off" class="w-6 h-6 text-slate-500"></i>
+                        <p class="text-xs text-slate-400 font-medium tracking-wide">Nenhum evento oficial agendado para hoje.</p>
+                    </div>
+                </div>
+            `;
+            return;
+        }
 
         if (missedCount > 0) {
             // Change text from '100% Atualizado' to alert
