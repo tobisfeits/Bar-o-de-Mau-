@@ -1,7 +1,7 @@
 // Service Worker for Barão de Mauá PWA - IMPROVED VERSION
 // Auto-update with network-first strategy for critical files
 
-const CACHE_VERSION = '2026.03.22.036'; // v36 - Cache Invalidation Fix
+const CACHE_VERSION = '2026.03.25.044'; // v44.1 - Calendar-Driven Attendance
 const CACHE_NAME = `desbravadores-v${CACHE_VERSION}`;
 const RUNTIME_CACHE = `desbravadores-runtime-v${CACHE_VERSION}`;
 
