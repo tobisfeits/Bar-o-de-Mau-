@@ -294,7 +294,7 @@ export const RBAC = {
             [this.ROLES.SUPER_ADMIN]: 'Administrador',
             [this.ROLES.CONSELHEIRO]: 'Conselheiro',
             [this.ROLES.DESBRAVADOR]: 'Desbravador',
-            [this.ROLES.AUXILIAR]: 'Auxiliar de Pontuação'
+            [this.ROLES.AUXILIAR]: 'Avaliador de Honras'
         };
 
         return {
