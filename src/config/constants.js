@@ -38,6 +38,16 @@ export const CONFIG = {
             { id: 'absent', name: 'Ausente', points: 0, color: 'red', emoji: '🔴' }
         ]
     },
+    IMPACTO_EVENT: {
+        date: '2026-03-28',
+        name: 'Impacto Esperança',
+        emoji: '✨',
+        items: [
+            { id: 'presenca', name: 'Presença', points: 20 },
+            { id: 'uniforme', name: 'Uniforme', points: 20 }
+        ],
+        maxPoints: 40
+    },
     STORAGE_KEYS: {
         UNITS: 'cd_units',
         MEMBERS: 'cd_members',

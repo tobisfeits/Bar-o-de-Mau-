@@ -145,6 +145,51 @@ export const ScoringMethods = {
                         ` : ''}
                     </div>
 
+                    ${dateKey === CONFIG.IMPACTO_EVENT.date ? `
+                    <!-- ✨ Impacto Esperança - Rubrica Especial (2 Itens) -->
+                    <div class="bg-gradient-to-br from-amber-900/30 to-yellow-900/20 rounded-xl border border-amber-500/30 overflow-hidden mb-3">
+                        <div class="p-3 border-b border-amber-500/20 flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                                <span class="text-lg">✨</span>
+                            </div>
+                            <div>
+                                <h3 class="font-black text-white text-sm uppercase tracking-wider">${CONFIG.IMPACTO_EVENT.name}</h3>
+                                <p class="text-xs text-amber-300/70">Rubrica especial · máx ${CONFIG.IMPACTO_EVENT.maxPoints} pts</p>
+                            </div>
+                        </div>
+                    </div>
+                    ${CONFIG.IMPACTO_EVENT.items.map(item => {
+                        const rawValue = score && score.items && score.items[item.id] !== undefined ? score.items[item.id] : null;
+                        const itemValue = rawValue === true;
+                        const bgOn = '#16a34a';
+                        const bgOff = '#dc2626';
+                        const currentBg = itemValue ? bgOn : bgOff;
+                        const knobTransform = itemValue ? 'translateX(1.75rem)' : 'translateX(0)';
+                        const displayIcon = itemValue
+                            ? `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`
+                            : `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
+                        return `
+                            <div class="bg-slate-900 rounded-xl p-4 border border-slate-800 shadow-sm transition-all group overflow-hidden relative">
+                                <div class="flex items-center justify-between relative z-10">
+                                    <div class="flex flex-col">
+                                        <span class="font-bold text-slate-200 group-hover:text-white transition-colors">${item.name}</span>
+                                        <span class="text-[10px] font-black text-slate-500 uppercase tracking-wider">${item.points} pts</span>
+                                    </div>
+                                    <button onclick="App.cycleItemPoint('${item.id}', '${memberId}')"
+                                            id="toggle-${item.id}"
+                                            data-state="${itemValue}"
+                                            style="background-color: ${currentBg};"
+                                            class="relative w-16 h-8 rounded-full transition-colors duration-200 flex-shrink-0 flex items-center shadow-inner overflow-hidden"
+                                            aria-pressed="${itemValue}">
+                                        <span class="absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow-lg transition-transform duration-200 z-10 flex items-center justify-center border-b-2 border-slate-200"
+                                              style="transform: ${knobTransform}; will-change: transform;">
+                                            <div class="icon-indicator" style="color: ${currentBg}; transition: color 0.2s;">${displayIcon}</div>
+                                        </span>
+                                    </button>
+                                </div>
+                            </div>`;
+                    }).join('')}
+                    ` : `
                     ${CONFIG.SCORE_ITEMS.map(item => {
             // Binary logic: default is false when null to avoid white states
             const rawValue = score && score.items && score.items[item.id] !== undefined ? score.items[item.id] : null;
@@ -191,7 +236,7 @@ export const ScoringMethods = {
                                 </div>
                             </div>
                         `;
-        }).join('')}
+        }).join('')}`}
 
                         <!-- 10 Dias de Oração (Archiving Logic) -->
                         ${(this.scoringDate >= CONFIG.PRAYER_EVENT.startDate && this.scoringDate <= CONFIG.PRAYER_EVENT.endDate) ? `
