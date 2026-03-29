@@ -105,6 +105,10 @@ export const DashboardMethods = {
                 visibleUnits = visibleUnits.filter(u => u.name.toLowerCase().includes(query));
             }
 
+            // Check calendar (v51.1 hotfix: move before HTML template)
+            const meetings = await Store.getMeetings();
+            const isMeetingDay = meetings.some(m => m.date === todayKey);
+
             const html = `
                 <div class="slide-in pb-20">
                     <!-- Header -->
@@ -281,10 +285,6 @@ export const DashboardMethods = {
             const todayScores = allScores[todayKey] || {};
             const missedList = activeMembers.filter(m => !todayScores[m.id]);
             const totalPresent = activeMembers.length - missedList.length;
-            
-            // Check calendar
-            const meetings = await Store.getMeetings();
-            const isMeetingDay = meetings.some(m => m.date === todayKey);
 
             this.updateMissedAttendanceWidget(missedList, totalPresent, isMeetingDay);
 
