@@ -148,9 +148,16 @@ export const DashboardMethods = {
                         
                         ${RBAC.isSuperAdmin() ? `
                             <div class="flex gap-2">
+                                ${isMeetingDay ? `
+                                <button onclick="App.closeMeeting('${todayKey}')"
+                                        class="bg-red-900/60 text-red-300 p-2 rounded-xl hover:bg-red-900 transition-colors shadow-lg border border-red-800/60 flex items-center justify-center"
+                                        title="Fechar Chamada (Lan\u00e7ar Faltas em Massa)">
+                                    <i data-lucide="lock" class="w-6 h-6"></i>
+                                </button>
+                                ` : ''}
                                 <button onclick="App.exportAttendanceGaps()" 
                                         class="bg-slate-800 text-blue-400 p-2 rounded-xl hover:bg-slate-700 transition-colors shadow-lg border border-slate-700 flex items-center justify-center"
-                                        title="Exportar Relatório de Faltas (CSV)">
+                                        title="Exportar Relat\u00f3rio de Faltas (CSV)">
                                     <i data-lucide="download" class="w-6 h-6"></i>
                                 </button>
                                 <a href="admin-deleted-members.html" 
@@ -406,6 +413,42 @@ export const DashboardMethods = {
             `;
         }
         if (typeof lucide !== 'undefined') lucide.createIcons();
+    },
+
+    async closeMeeting(dateKey) {
+        if (!RBAC.isSuperAdmin()) return;
+
+        const { ConfirmDialog } = await import('../ui/dialogs.js');
+        const { DataAdapter } = await import('../data/repository.js');
+        const { Loading } = await import('../ui/loading.js');
+
+        // Quick pre-check: count how many would be marked absent
+        const allMembers = await import('../data/store.js').then(m => m.Store.getMembers());
+        const allScores = await import('../data/store.js').then(m => m.Store.getScores());
+        const scoredIds = new Set(Object.keys(allScores[dateKey] || {}));
+        const pendingCount = allMembers.filter(m =>
+            m.active !== false && !scoredIds.has(m.id)
+        ).length;
+
+        const confirmed = await ConfirmDialog.show(
+            'Fechar Chamada',
+            `Isso marcará <strong>${pendingCount}</strong> membro(s) como <strong>Ausentes</strong> no banco de dados.<br><br>Esta ação é permanente e irreversível via aplicativo. Deseja continuar?`,
+            { confirmText: `Confirmar (${pendingCount} faltas)`, confirmClass: 'bg-red-600 hover:bg-red-700 text-white' }
+        );
+
+        if (!confirmed) return;
+
+        try {
+            Loading.show('Lançando faltas em massa...');
+            const { inserted, skipped } = await DataAdapter.bulkMarkAbsent(dateKey);
+            Loading.hide();
+            Toast.show(`✅ Fechamento concluído! ${inserted} falta(s) lançada(s), ${skipped} já avaliados.`, 'success');
+            await this.renderDashboard();
+        } catch (err) {
+            Loading.hide();
+            Toast.show('Erro ao fechar chamada. Tente novamente.', 'error');
+            console.error('closeMeeting error:', err);
+        }
     },
 
     async registerMeeting(date) {

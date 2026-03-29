@@ -516,5 +516,76 @@ export const DataAdapter = {
             console.warn('getSessionLogs silenced:', e.message);
             return [];
         }
+    },
+
+    // ── Bulk Mark Absent (v50.2) ──────────────────────────────────────────────
+    /**
+     * Inserts is_absent=true records for all active members (non-TESTE units)
+     * who do NOT already have a score entry for the given dateKey.
+     * @param {string} dateKey - e.g. '2026-03-28'
+     * @returns {{ inserted: number, skipped: number }}
+     */
+    async bulkMarkAbsent(dateKey) {
+        if (!this.useSupabase()) {
+            Toast.show('Função indisponível no modo offline.', 'error');
+            return { inserted: 0, skipped: 0 };
+        }
+
+        try {
+            // 1. Fetch all active members with their unit name
+            const { data: membersData, error: membersError } = await window.supabaseClient
+                .from('members')
+                .select('id, name, units!inner(name)')
+                .eq('active', true)
+                .is('deleted_at', null);
+
+            if (membersError) throw membersError;
+
+            // 2. Filter out test units
+            const eligibleMembers = (membersData || []).filter(
+                m => !m.units?.name?.toUpperCase().includes('TESTE')
+            );
+
+            // 3. Fetch member_ids already scored on this date
+            const { data: existingScores, error: scoresError } = await window.supabaseClient
+                .from('scores')
+                .select('member_id')
+                .eq('date', dateKey);
+
+            if (scoresError) throw scoresError;
+
+            const scoredIds = new Set((existingScores || []).map(s => s.member_id));
+
+            // 4. Determine who is missing
+            const toAbsent = eligibleMembers.filter(m => !scoredIds.has(m.id));
+
+            if (toAbsent.length === 0) {
+                return { inserted: 0, skipped: eligibleMembers.length };
+            }
+
+            // 5. Batch insert absences
+            const rows = toAbsent.map(m => ({
+                member_id: m.id,
+                date: dateKey,
+                is_absent: true,
+                items: {},
+                created_by: 'Sistema (Fechamento Automático)'
+            }));
+
+            const { error: insertError } = await window.supabaseClient
+                .from('scores')
+                .insert(rows);
+
+            if (insertError) throw insertError;
+
+            // 6. Invalidate scores cache
+            Cache.invalidate('scores');
+
+            return { inserted: toAbsent.length, skipped: scoredIds.size };
+
+        } catch (err) {
+            console.error('bulkMarkAbsent error:', err);
+            throw err;
+        }
     }
 };
