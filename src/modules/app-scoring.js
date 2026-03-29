@@ -386,22 +386,26 @@ export const ScoringMethods = {
         });
 
         const container = document.getElementById('score-items-container');
+        const isImpactoEvent = App.currentDate === CONFIG.IMPACTO_EVENT.date;
+
         if (status === 'pending') {
             container.classList.add('opacity-40', 'pointer-events-none');
             container.classList.remove('grayscale', 'opacity-30');
-            this.setItemPoint('presence', false);
+            this.setItemPoint(isImpactoEvent ? 'presenca' : 'presence', false);
         } else if (status === 'absent') {
             // Master trigger: marking as absent sets all items to false and disables UI
-            CONFIG.SCORE_ITEMS.forEach(item => this.setItemPoint(item.id, false));
+            if (isImpactoEvent) {
+                CONFIG.IMPACTO_EVENT.items.forEach(item => this.setItemPoint(item.id, false));
+            } else {
+                CONFIG.SCORE_ITEMS.forEach(item => this.setItemPoint(item.id, false));
+            }
             this.selectPrayerLevel('absent');
             container.classList.add('opacity-30', 'pointer-events-none', 'grayscale');
             container.classList.remove('opacity-40');
-            // Trigger a consolidated auto-save for the entire record
             this.triggerAutoSave(memberId);
         } else {
             container.classList.remove('opacity-40', 'pointer-events-none', 'grayscale', 'opacity-30');
-            this.setItemPoint('presence', true);
-            // Trigger auto-save if changing to present as well
+            this.setItemPoint(isImpactoEvent ? 'presenca' : 'presence', true);
             this.triggerAutoSave(memberId);
         }
     },
