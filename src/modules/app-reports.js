@@ -1445,16 +1445,16 @@ export const ReportMethods = {
                     let author = 'N/A';
 
                     if (!score) {
-                        statusLabel = '🔴 PENDENTE';
-                        statusClass = 'bg-red-500/10 text-red-500 border-red-500/30 shadow-inner shadow-red-500/10';
-                    } else if (score.isAbsent) {
+                        statusLabel = '🟡 PENDENTE';
+                        statusClass = 'bg-yellow-500/10 text-yellow-500 border-yellow-500/30';
+                    } else if (score.is_absent === true) {
                         statusLabel = '❌ AUSENTE';
                         statusClass = 'bg-slate-800 text-orange-400 border-orange-500/30';
-                        author = score.createdBy || 'Sistema';
+                        author = score.created_by || 'Sistema';
                     } else {
                         statusLabel = '✅ PRESENTE';
                         statusClass = 'bg-green-500/10 text-green-400 border-green-500/30';
-                        author = score.createdBy || 'Sistema';
+                        author = score.created_by || 'Sistema';
                     }
 
                     auditData.push({

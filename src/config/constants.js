@@ -48,6 +48,16 @@ export const CONFIG = {
         ],
         maxPoints: 40
     },
+    HOLY_WEEK_EVENT: {
+        startDate: '2026-03-29',
+        endDate: '2026-04-04',
+        name: 'Semana Santa',
+        emoji: '✝️',
+        items: [
+            { id: 'presenca', name: 'Presença', points: 20 }
+        ],
+        maxPoints: 20
+    },
     STORAGE_KEYS: {
         UNITS: 'cd_units',
         MEMBERS: 'cd_members',

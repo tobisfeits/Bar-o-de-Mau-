@@ -189,6 +189,50 @@ export const ScoringMethods = {
                                 </div>
                             </div>`;
                     }).join('')}
+                    ` : (dateKey >= CONFIG.HOLY_WEEK_EVENT.startDate && dateKey <= CONFIG.HOLY_WEEK_EVENT.endDate) ? `
+                    <!-- ✝️ Semana Santa - Rubrica Especial (1 Item) -->
+                    <div class="bg-gradient-to-br from-indigo-900/30 to-purple-900/20 rounded-xl border border-indigo-500/30 overflow-hidden mb-3">
+                        <div class="p-3 border-b border-indigo-500/20 flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-lg bg-indigo-500/20 flex items-center justify-center">
+                                <span class="text-lg">✝️</span>
+                            </div>
+                            <div>
+                                <h3 class="font-black text-white text-sm uppercase tracking-wider">${CONFIG.HOLY_WEEK_EVENT.name}</h3>
+                                <p class="text-xs text-indigo-300/70">Rubrica especial · máx ${CONFIG.HOLY_WEEK_EVENT.maxPoints} pts</p>
+                            </div>
+                        </div>
+                    </div>
+                    ${CONFIG.HOLY_WEEK_EVENT.items.map(item => {
+                        const rawValue = score && score.items && score.items[item.id] !== undefined ? score.items[item.id] : null;
+                        const itemValue = rawValue === true;
+                        const bgOn = '#16a34a';
+                        const bgOff = '#dc2626';
+                        const currentBg = itemValue ? bgOn : bgOff;
+                        const knobTransform = itemValue ? 'translateX(1.75rem)' : 'translateX(0)';
+                        const displayIcon = itemValue
+                            ? `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`
+                            : `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
+                        return `
+                            <div class="bg-slate-900 rounded-xl p-4 border border-slate-800 shadow-sm transition-all group overflow-hidden relative">
+                                <div class="flex items-center justify-between relative z-10">
+                                    <div class="flex flex-col">
+                                        <span class="font-bold text-slate-200 group-hover:text-white transition-colors">${item.name}</span>
+                                        <span class="text-[10px] font-black text-slate-500 uppercase tracking-wider">${item.points} pts</span>
+                                    </div>
+                                    <button onclick="App.cycleItemPoint('${item.id}', '${memberId}')"
+                                            id="toggle-${item.id}"
+                                            data-state="${itemValue}"
+                                            style="background-color: ${currentBg};"
+                                            class="relative w-16 h-8 rounded-full transition-colors duration-200 flex-shrink-0 flex items-center shadow-inner overflow-hidden"
+                                            aria-pressed="${itemValue}">
+                                        <span class="absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow-lg transition-transform duration-200 z-10 flex items-center justify-center border-b-2 border-slate-200"
+                                              style="transform: ${knobTransform}; will-change: transform;">
+                                            <div class="icon-indicator" style="color: ${currentBg}; transition: color 0.2s;">${displayIcon}</div>
+                                        </span>
+                                    </button>
+                                </div>
+                            </div>`;
+                    }).join('')}
                     ` : `
                     ${CONFIG.SCORE_ITEMS.map(item => {
             // Binary logic: default is false when null to avoid white states
@@ -398,15 +442,18 @@ export const ScoringMethods = {
 
         const container = document.getElementById('score-items-container');
         const isImpactoEvent = App.currentDate === CONFIG.IMPACTO_EVENT.date;
+        const isHolyWeek = App.currentDate >= CONFIG.HOLY_WEEK_EVENT.startDate && App.currentDate <= CONFIG.HOLY_WEEK_EVENT.endDate;
+        const isSpecialEvent = isImpactoEvent || isHolyWeek;
+        const activeSpecialConfig = isImpactoEvent ? CONFIG.IMPACTO_EVENT : isHolyWeek ? CONFIG.HOLY_WEEK_EVENT : null;
 
         if (status === 'pending') {
             container.classList.add('opacity-40', 'pointer-events-none');
             container.classList.remove('grayscale', 'opacity-30');
-            this.setItemPoint(isImpactoEvent ? 'presenca' : 'presence', false);
+            this.setItemPoint(isSpecialEvent ? 'presenca' : 'presence', false);
         } else if (status === 'absent') {
             // Master trigger: marking as absent sets all items to false and disables UI
-            if (isImpactoEvent) {
-                CONFIG.IMPACTO_EVENT.items.forEach(item => this.setItemPoint(item.id, false));
+            if (isSpecialEvent && activeSpecialConfig) {
+                activeSpecialConfig.items.forEach(item => this.setItemPoint(item.id, false));
             } else {
                 CONFIG.SCORE_ITEMS.forEach(item => this.setItemPoint(item.id, false));
             }
@@ -416,7 +463,7 @@ export const ScoringMethods = {
             this.triggerAutoSave(memberId);
         } else {
             container.classList.remove('opacity-40', 'pointer-events-none', 'grayscale', 'opacity-30');
-            this.setItemPoint(isImpactoEvent ? 'presenca' : 'presence', true);
+            this.setItemPoint(isSpecialEvent ? 'presenca' : 'presence', true);
             this.triggerAutoSave(memberId);
         }
     },
