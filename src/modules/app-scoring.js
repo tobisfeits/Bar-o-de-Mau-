@@ -357,11 +357,10 @@ export const ScoringMethods = {
         // v51.3 Fix: Force-sync status toggles after render to prevent presence/state desync.
         // The HTML renders text-color classes but doesn't activate the toggle logic (setItemPoint).
         // We need to re-trigger setAttendanceStatus so the DOM reflects the loaded score.
-        const memberId = member.id;
         if (score && score.is_absent === true) {
-            this.setAttendanceStatus(memberId, 'absent');
+            this.setAttendanceStatus(member.id, 'absent');
         } else if (score && score.is_absent === false) {
-            this.setAttendanceStatus(memberId, 'present');
+            this.setAttendanceStatus(member.id, 'present');
         }
         // If no score or is_absent is null/undefined → stays 'pending', no action needed
     },
