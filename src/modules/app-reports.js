@@ -1598,10 +1598,9 @@ export const ReportMethods = {
     async _renderAnalytics(container) {
         Loading.show('Carregando Analytics...');
         try {
-            const [allMembers, allUnits, allScores, meetings] = await Promise.all([
+            const [allMembers, allUnits, meetings] = await Promise.all([
                 Store.getMembers(),
                 Store.getUnits(),
-                Store.getScores(),
                 Store.getMeetings()
             ]);
 
@@ -1619,6 +1618,14 @@ export const ReportMethods = {
             const currentYM = new Date().toISOString().substring(0, 7);
             const selectedMonth = this._analyticsMonth || (sortedMonths.includes(currentYM) ? currentYM : (sortedMonths[0] || currentYM));
             this._analyticsMonth = selectedMonth;
+
+            // v58.1: Ensure scores for the SELECTED MONTH are in cache (not just current month).
+            // Counselor completion is unit-based: any score record present = counted, regardless of created_by.
+            const firstDay = `${selectedMonth}-01`;
+            const lastDay = new Date(+selectedMonth.split('-')[0], +selectedMonth.split('-')[1], 0)
+                .toISOString().split('T')[0];
+            await Store.fetchScoresRange(firstDay, lastDay);
+            const allScores = await Store.getScores();
 
             // ── Pro-rate helpers ────────────────────────────────────────────
             const ITEM_POINTS = {};
