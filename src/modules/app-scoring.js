@@ -545,8 +545,15 @@ export const ScoringMethods = {
         const missingItems = [];
 
         if (!isAbsent) {
+            // Determine which rubric is active for this date
+            const isImpactoEvent = this.scoringDate === CONFIG.IMPACTO_EVENT.date;
+            const isHolyWeek = this.scoringDate >= CONFIG.HOLY_WEEK_EVENT.startDate && this.scoringDate <= CONFIG.HOLY_WEEK_EVENT.endDate;
+            const activeItems = isImpactoEvent ? CONFIG.IMPACTO_EVENT.items
+                              : isHolyWeek    ? CONFIG.HOLY_WEEK_EVENT.items
+                              :                 CONFIG.SCORE_ITEMS;
+
             // Read toggle state for each item using data-state attribute
-            CONFIG.SCORE_ITEMS.forEach(item => {
+            activeItems.forEach(item => {
                 const toggle = document.getElementById(`toggle-${item.id}`);
                 if (!toggle) { missingItems.push(item.name); return; }
 
