@@ -82,7 +82,8 @@ export const DataAdapter = {
                     isManualUnit: member.is_manual_unit,
                     role: member.role,
                     gender: member.gender,
-                    birthDate: member.birth_date
+                    birthDate: member.birth_date,
+                    joinedAt: member.created_at ? member.created_at.split('T')[0] : null
                 }));
 
                 Cache.set('members', members);

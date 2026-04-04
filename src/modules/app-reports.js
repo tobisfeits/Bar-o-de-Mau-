@@ -69,11 +69,12 @@ export const ReportMethods = {
                 { id: 'visao-geral', icon: 'layout-dashboard', label: 'Visão Geral' },
                 { id: 'consultas', icon: 'search', label: 'Consultas' },
                 { id: 'auditoria', icon: 'shield-alert', label: 'Auditoria' },
+                { id: 'analytics', icon: 'trending-up', label: 'Analytics' },
             ].map(t => `
                         <button onclick="App.setReportTab('${t.id}')" id="rpt-tab-${t.id}"
-                                class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-lg font-bold text-sm transition-all
+                                class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-lg font-bold text-xs transition-all
                                        ${this._activeReportTab === t.id ? 'bg-brand-gold text-slate-900 shadow-lg' : 'text-slate-400 hover:text-white'}">
-                            <i data-lucide="${t.icon}" class="w-4 h-4"></i>${t.label}
+                            <i data-lucide="${t.icon}" class="w-3 h-3"></i>${t.label}
                         </button>
                     `).join('')}
                 </div>
@@ -92,7 +93,7 @@ export const ReportMethods = {
     setReportTab(tab) {
         this._activeReportTab = tab;
         // Update tab button styles
-        ['visao-geral', 'consultas', 'auditoria'].forEach(t => {
+        ['visao-geral', 'consultas', 'auditoria', 'analytics'].forEach(t => {
             const btn = document.getElementById(`rpt-tab-${t}`);
             if (!btn) return;
             if (t === tab) {
@@ -120,6 +121,7 @@ export const ReportMethods = {
             case 'visao-geral': await this._renderVisaoGeral(container, start, end); break;
             case 'consultas': await this._renderConsultas(container, start, end); break;
             case 'auditoria': await this._renderAuditoria(container); break;
+            case 'analytics': await this._renderAnalytics(container); break;
         }
         if (typeof lucide !== 'undefined') lucide.createIcons();
     },
@@ -872,6 +874,70 @@ export const ReportMethods = {
         this.renderActiveReportTab();
     },
 
+    setAnalyticsMonth(month) {
+        this._analyticsMonth = month;
+        this.renderActiveReportTab();
+    },
+
+    async exportAnalyticsCSV() {
+        try {
+            const [allMembers, allUnits, allScores, meetings] = await Promise.all([
+                Store.getMembers(),
+                Store.getUnits(),
+                Store.getScores(),
+                Store.getMeetings()
+            ]);
+
+            const visibleUnits = RBAC.filterUnits(allUnits);
+            const unitMap = {};
+            visibleUnits.forEach(u => unitMap[u.id] = u.name);
+
+            const selectedMonth = this._analyticsMonth || new Date().toISOString().substring(0, 7);
+            const monthMeetings = meetings.filter(m => m.date.startsWith(selectedMonth));
+
+            const ITEM_POINTS = {};
+            [...CONFIG.SCORE_ITEMS, ...CONFIG.IMPACTO_EVENT.items, ...CONFIG.HOLY_WEEK_EVENT.items]
+                .forEach(i => { ITEM_POINTS[i.id] = i.points; });
+
+            const rows = [['Mês', 'Unidade', 'Membro', 'Reuniões Elegíveis', 'Pontos', 'Média/Reunião']];
+
+            const activeMembers = allMembers.filter(m => !m.isCounselor && visibleUnits.some(u => u.id === m.unitId));
+            activeMembers.forEach(member => {
+                const joinedAt = member.joinedAt || '2000-01-01';
+                const eligible = monthMeetings.filter(m => m.date >= joinedAt);
+                let total = 0;
+                eligible.forEach(m => {
+                    const s = (allScores[m.date] || {})[member.id];
+                    if (s && !s.is_absent) {
+                        Object.entries(s.items || {}).forEach(([id, val]) => {
+                            if (val === true && ITEM_POINTS[id]) total += ITEM_POINTS[id];
+                        });
+                    }
+                });
+                rows.push([
+                    selectedMonth,
+                    unitMap[member.unitId] || 'Sem Unidade',
+                    Sanitizer.normalizeName(member.name),
+                    eligible.length,
+                    total,
+                    eligible.length > 0 ? (total / eligible.length).toFixed(1) : '0.0'
+                ]);
+            });
+
+            const csv = '\uFEFF' + rows.map(r => r.join(';')).join('\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const a = Object.assign(document.createElement('a'), {
+                href: URL.createObjectURL(blob),
+                download: `analytics_${selectedMonth}.csv`
+            });
+            a.click();
+            Toast.show('CSV Exportado!', 'success');
+        } catch (e) {
+            console.error('Export error:', e);
+            Toast.show('Erro ao exportar CSV', 'error');
+        }
+    },
+
     // ── Tab: Por Item ────────────────────────────────────────────────────────
     async _renderItemTab(container, start, end) {
         const todayKey = Utils.getTodayKey();
@@ -1523,6 +1589,236 @@ export const ReportMethods = {
         } catch (error) {
             console.error('Erro ao renderizar auditoria:', error);
             container.innerHTML = `<div class="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-center text-sm font-bold">Falha de Memória ao montar Data Table.</div>`;
+        } finally {
+            Loading.hide();
+        }
+    },
+
+    // ── Tab 4: Analytics (Pro-rated Monthly Management Dashboard) ────────────
+    async _renderAnalytics(container) {
+        Loading.show('Carregando Analytics...');
+        try {
+            const [allMembers, allUnits, allScores, meetings] = await Promise.all([
+                Store.getMembers(),
+                Store.getUnits(),
+                Store.getScores(),
+                Store.getMeetings()
+            ]);
+
+            // Build visible unit map (exclude TESTE)
+            const visibleUnits = RBAC.filterUnits(allUnits);
+            const unitMap = {};
+            visibleUnits.forEach(u => unitMap[u.id] = u.name);
+
+            // Derive available months from meetings calendar
+            const monthsSet = new Set();
+            meetings.forEach(m => monthsSet.add(m.date.substring(0, 7)));
+            const sortedMonths = [...monthsSet].sort((a, b) => b.localeCompare(a));
+
+            // Default: current month or latest available
+            const currentYM = new Date().toISOString().substring(0, 7);
+            const selectedMonth = this._analyticsMonth || (sortedMonths.includes(currentYM) ? currentYM : (sortedMonths[0] || currentYM));
+            this._analyticsMonth = selectedMonth;
+
+            // ── Pro-rate helpers ────────────────────────────────────────────
+            const ITEM_POINTS = {};
+            [...CONFIG.SCORE_ITEMS, ...CONFIG.IMPACTO_EVENT.items, ...CONFIG.HOLY_WEEK_EVENT.items]
+                .forEach(i => { ITEM_POINTS[i.id] = i.points; });
+
+            function calcScore(memberScore) {
+                if (!memberScore || memberScore.is_absent) return 0;
+                let pts = 0;
+                Object.entries(memberScore.items || {}).forEach(([id, val]) => {
+                    if (val === true && ITEM_POINTS[id]) pts += ITEM_POINTS[id];
+                });
+                return pts;
+            }
+
+            function eligibleMeetings(member, monthFilter) {
+                const joinedAt = member.joinedAt || '2000-01-01';
+                return meetings.filter(m => m.date.startsWith(monthFilter) && m.date >= joinedAt);
+            }
+
+            // ── Growth Widget: new members this month ──────────────────────
+            const newThisMonth = allMembers.filter(m =>
+                m.joinedAt && m.joinedAt.startsWith(selectedMonth)
+            ).length;
+
+            // ── Unit Ranking (pro-rated average per eligible member) ────────
+            const activeNonCounselors = allMembers.filter(m =>
+                !m.isCounselor && visibleUnits.some(u => u.id === m.unitId)
+            );
+
+            const unitStats = {};
+            visibleUnits.forEach(u => {
+                unitStats[u.id] = { name: u.name, totalPts: 0, memberCount: 0, meetingCount: 0 };
+            });
+
+            activeNonCounselors.forEach(member => {
+                if (!unitStats[member.unitId]) return;
+                const eligible = eligibleMeetings(member, selectedMonth);
+                if (eligible.length === 0) return;
+                let memberPts = 0;
+                eligible.forEach(m => {
+                    memberPts += calcScore((allScores[m.date] || {})[member.id]);
+                });
+                unitStats[member.unitId].totalPts += memberPts;
+                unitStats[member.unitId].memberCount++;
+                unitStats[member.unitId].meetingCount = Math.max(unitStats[member.unitId].meetingCount, eligible.length);
+            });
+
+            const unitRanking = Object.values(unitStats)
+                .filter(u => u.memberCount > 0)
+                .map(u => ({ ...u, avg: u.memberCount > 0 ? u.totalPts / u.memberCount : 0 }))
+                .sort((a, b) => b.avg - a.avg);
+
+            const maxUnitAvg = unitRanking[0]?.avg || 1;
+
+            // ── Counselor Ranking (completion rate = scored members / eligible members) ─
+            const counselorStats = {};
+            visibleUnits.forEach(u => {
+                const unitMeetings = meetings.filter(m => m.date.startsWith(selectedMonth));
+                const unitMembers = activeNonCounselors.filter(m => m.unitId === u.id);
+                let filled = 0, total = 0;
+                unitMeetings.forEach(meeting => {
+                    const dayScores = allScores[meeting.date] || {};
+                    unitMembers.forEach(member => {
+                        if (!member.joinedAt || member.joinedAt <= meeting.date) {
+                            total++;
+                            if (dayScores[member.id]) filled++;
+                        }
+                    });
+                });
+                if (total > 0) {
+                    counselorStats[u.id] = {
+                        unit: u.name,
+                        filled,
+                        total,
+                        rate: Math.round((filled / total) * 100)
+                    };
+                }
+            });
+
+            const counselorRanking = Object.values(counselorStats).sort((a, b) => b.rate - a.rate);
+
+            // ── Render ─────────────────────────────────────────────────────
+            const monthOptions = sortedMonths.map(m => {
+                const [y, mo] = m.split('-');
+                const label = new Date(+y, +mo - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+                return `<option value="${m}" ${m === selectedMonth ? 'selected' : ''}>${label}</option>`;
+            }).join('');
+
+            container.innerHTML = `
+                <div class="space-y-5 animate-fade-in pb-8">
+
+                    <!-- Month Filter -->
+                    <div class="flex items-center gap-3 bg-slate-900 rounded-xl border border-slate-700 p-3">
+                        <i data-lucide="calendar-range" class="w-5 h-5 text-brand-gold flex-shrink-0"></i>
+                        <select onchange="App.setAnalyticsMonth(this.value)"
+                                class="flex-1 bg-transparent text-white font-bold text-sm focus:outline-none cursor-pointer">
+                            ${monthOptions}
+                        </select>
+                    </div>
+
+                    <!-- Growth Widget -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="bg-gradient-to-br from-emerald-900/40 to-teal-900/20 border border-emerald-500/30 rounded-xl p-4">
+                            <div class="flex items-center gap-2 mb-2">
+                                <i data-lucide="user-plus" class="w-4 h-4 text-emerald-400"></i>
+                                <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Novos Membros</span>
+                            </div>
+                            <div class="text-3xl font-black ${newThisMonth > 0 ? 'text-emerald-400' : 'text-slate-500'}">
+                                ${newThisMonth > 0 ? '+' : ''}${newThisMonth}
+                            </div>
+                            <div class="text-[10px] text-slate-500 mt-1">neste mês</div>
+                        </div>
+                        <div class="bg-gradient-to-br from-blue-900/40 to-indigo-900/20 border border-blue-500/30 rounded-xl p-4">
+                            <div class="flex items-center gap-2 mb-2">
+                                <i data-lucide="calendar-check" class="w-4 h-4 text-blue-400"></i>
+                                <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Reuniões</span>
+                            </div>
+                            <div class="text-3xl font-black text-blue-400">
+                                ${meetings.filter(m => m.date.startsWith(selectedMonth)).length}
+                            </div>
+                            <div class="text-[10px] text-slate-500 mt-1">no mês selecionado</div>
+                        </div>
+                    </div>
+
+                    <!-- Unit Ranking -->
+                    <div>
+                        <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                            <i data-lucide="trophy" class="w-3 h-3 text-brand-gold"></i>Ranking de Unidades (Méd. Pro-Rated)
+                        </p>
+                        <div class="space-y-2">
+                            ${unitRanking.length === 0 ? `<p class="text-slate-500 text-sm text-center py-4">Sem dados para este mês.</p>` :
+                              unitRanking.map((u, i) => {
+                                const pct = Math.round((u.avg / maxUnitAvg) * 100);
+                                const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i+1}`;
+                                return `
+                                <div class="bg-slate-900 rounded-xl p-3 border border-slate-800">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-base">${medal}</span>
+                                            <span class="font-bold text-white text-sm">${u.name}</span>
+                                        </div>
+                                        <div class="text-right">
+                                            <span class="text-brand-gold font-black text-sm">${u.avg.toFixed(1)} pts</span>
+                                            <div class="text-[10px] text-slate-500">${u.memberCount} membros · ${u.meetingCount} reuniões</div>
+                                        </div>
+                                    </div>
+                                    <div class="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                                        <div class="h-full bg-brand-gold rounded-full transition-all" style="width: ${pct}%"></div>
+                                    </div>
+                                </div>`;
+                              }).join('')}
+                        </div>
+                    </div>
+
+                    <!-- Counselor Ranking -->
+                    <div>
+                        <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                            <i data-lucide="clipboard-check" class="w-3 h-3 text-indigo-400"></i>Preenchimento por Unidade
+                        </p>
+                        <div class="bg-slate-900 border border-slate-700 rounded-xl overflow-hidden">
+                            <table class="w-full text-left">
+                                <thead class="bg-slate-950 border-b border-slate-700">
+                                    <tr>
+                                        <th class="px-3 py-2.5 text-[10px] font-black uppercase text-slate-500">Unidade</th>
+                                        <th class="px-3 py-2.5 text-[10px] font-black uppercase text-slate-500">Preenchidos</th>
+                                        <th class="px-3 py-2.5 text-[10px] font-black uppercase text-slate-500">Taxa</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${counselorRanking.length === 0 ? `<tr><td colspan="3" class="py-4 text-center text-slate-500 text-sm">Sem dados.</td></tr>` :
+                                      counselorRanking.map(c => `
+                                        <tr class="border-b border-slate-800/80 hover:bg-slate-800 transition-colors">
+                                            <td class="px-3 py-3 text-xs font-bold text-white">${c.unit}</td>
+                                            <td class="px-3 py-3 text-xs text-slate-400">${c.filled}/${c.total}</td>
+                                            <td class="px-3 py-3">
+                                                <span class="px-2 py-1 rounded-md text-[10px] font-black border ${
+                                                    c.rate >= 90 ? 'bg-green-500/10 text-green-400 border-green-500/30'
+                                                    : c.rate >= 70 ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30'
+                                                    : 'bg-red-500/10 text-red-400 border-red-500/30'
+                                                }">${c.rate}%</span>
+                                            </td>
+                                        </tr>`).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Export Button -->
+                    <button onclick="App.exportAnalyticsCSV()"
+                            class="w-full py-3 rounded-xl font-black text-sm uppercase tracking-wider bg-slate-800 hover:bg-slate-700 text-brand-gold border border-brand-gold/30 flex items-center justify-center gap-2 transition-colors">
+                        <i data-lucide="download" class="w-4 h-4"></i>Exportar Relatório Mensal (CSV)
+                    </button>
+                </div>
+            `;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+
+        } catch (error) {
+            console.error('Analytics error:', error);
+            container.innerHTML = `<div class="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm font-bold text-center">Erro ao gerar Analytics.</div>`;
         } finally {
             Loading.hide();
         }
