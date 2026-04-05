@@ -253,6 +253,19 @@ export const DataAdapter = {
         }
     },
 
+    // v65: Normalize score.items from DB — handles multiple JSONB formats
+    _normalizeItems(raw) {
+        if (!raw) return {};
+        // Array format from SQL inserts: [{id:'presenca',points:20}] → {presenca:true}
+        if (Array.isArray(raw)) {
+            const obj = {};
+            raw.forEach(entry => { if (entry && entry.id) obj[entry.id] = true; });
+            return obj;
+        }
+        // Already object format {presenca: true} — passthrough
+        return raw;
+    },
+
     // SCORES
     async getScores(filters = {}) {
         if (this.useSupabase()) {
@@ -282,11 +295,11 @@ export const DataAdapter = {
                     scoresByDate[score.date] = {};
                 }
                 scoresByDate[score.date][score.member_id] = {
-                    isAbsent: score.is_absent,
-                    items: score.items,
-                    createdBy: score.created_by,
-                    createdById: score.created_by_id,
-                    createdAt: score.created_at
+                    is_absent: score.is_absent,
+                    items: this._normalizeItems(score.items),
+                    created_by: score.created_by,
+                    created_by_id: score.created_by_id,
+                    created_at: score.created_at
                 };
             });
             return scoresByDate;

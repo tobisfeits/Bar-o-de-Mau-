@@ -879,6 +879,13 @@ export const ReportMethods = {
         this.renderActiveReportTab();
     },
 
+    filterTopMembers(unitId) {
+        const rows = document.querySelectorAll('#top-members-list tbody tr[data-unit]');
+        rows.forEach(row => {
+            row.style.display = (unitId === 'all' || row.dataset.unit === unitId) ? '' : 'none';
+        });
+    },
+
     async exportAnalyticsCSV() {
         try {
             const [allMembers, allUnits, allScores, meetings] = await Promise.all([
@@ -1681,11 +1688,18 @@ export const ReportMethods = {
 
             const maxUnitAvg = unitRanking[0]?.avg || 1;
 
-            // ── Counselor Ranking (completion rate = scored members / eligible members) ─
-            const counselorStats = {};
+            // ── Counselor Ranking — 70/30 Meritocracy Model (v65) ──────────
+            // 70% = unit avg pts per member, 30% = completion rate
+            const counselorMerit = [];
+            const maxPossibleAvg = maxUnitAvg; // normalize against best unit
             visibleUnits.forEach(u => {
                 const unitMeetings = meetings.filter(m => m.date.startsWith(selectedMonth));
                 const unitMembers = activeNonCounselors.filter(m => m.unitId === u.id);
+                // 70%: unit avg from unitStats
+                const us = unitStats[u.id];
+                const unitAvg = us && us.memberCount > 0 ? us.totalPts / us.memberCount : 0;
+                const unitScore70 = maxPossibleAvg > 0 ? (unitAvg / maxPossibleAvg) * 70 : 0;
+                // 30%: completion rate
                 let filled = 0, total = 0;
                 unitMeetings.forEach(meeting => {
                     const dayScores = allScores[meeting.date] || {};
@@ -1696,17 +1710,49 @@ export const ReportMethods = {
                         }
                     });
                 });
-                if (total > 0) {
-                    counselorStats[u.id] = {
+                const rate = total > 0 ? Math.round((filled / total) * 100) : 0;
+                const compScore30 = (rate / 100) * 30;
+                const finalScore = Math.round(unitScore70 + compScore30);
+                if (total > 0 || (us && us.memberCount > 0)) {
+                    counselorMerit.push({
                         unit: u.name,
-                        filled,
-                        total,
-                        rate: Math.round((filled / total) * 100)
-                    };
+                        unitAvg: unitAvg.toFixed(1),
+                        rate,
+                        filled, total,
+                        finalScore
+                    });
                 }
             });
+            counselorMerit.sort((a, b) => b.finalScore - a.finalScore);
 
-            const counselorRanking = Object.values(counselorStats).sort((a, b) => b.rate - a.rate);
+            // ── Top Desbravadores (Individual Member Leaderboard) ──────────
+            const memberLeaderboard = [];
+            activeNonCounselors.forEach(member => {
+                const eligible = eligibleMeetings(member, selectedMonth);
+                if (eligible.length === 0) return;
+                let totalPts = 0, attended = 0;
+                eligible.forEach(m => {
+                    const s = (allScores[m.date] || {})[member.id];
+                    const pts = calcScore(s);
+                    totalPts += pts;
+                    if (s && !s.is_absent) attended++;
+                });
+                memberLeaderboard.push({
+                    name: member.name,
+                    unit: unitMap[member.unitId] || '—',
+                    unitId: member.unitId,
+                    totalPts,
+                    attended,
+                    meetings: eligible.length
+                });
+            });
+            memberLeaderboard.sort((a, b) => b.totalPts - a.totalPts);
+            const top20 = memberLeaderboard.slice(0, 20);
+
+            // ── Build unit filter options ─────────────────────────────────────
+            const unitFilterOpts = visibleUnits.map(u =>
+                `<option value="${u.id}">${u.name}</option>`
+            ).join('');
 
             // ── Render ─────────────────────────────────────────────────────
             const monthOptions = sortedMonths.map(m => {
@@ -1781,34 +1827,79 @@ export const ReportMethods = {
                         </div>
                     </div>
 
-                    <!-- Counselor Ranking -->
+                    <!-- Counselor Meritocracy 70/30 -->
                     <div>
                         <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
-                            <i data-lucide="clipboard-check" class="w-3 h-3 text-indigo-400"></i>Preenchimento por Unidade
+                            <i data-lucide="award" class="w-3 h-3 text-indigo-400"></i>Meritocracia de Liderança (70/30)
                         </p>
                         <div class="bg-slate-900 border border-slate-700 rounded-xl overflow-hidden">
                             <table class="w-full text-left">
                                 <thead class="bg-slate-950 border-b border-slate-700">
                                     <tr>
-                                        <th class="px-3 py-2.5 text-[10px] font-black uppercase text-slate-500">Unidade</th>
-                                        <th class="px-3 py-2.5 text-[10px] font-black uppercase text-slate-500">Preenchidos</th>
-                                        <th class="px-3 py-2.5 text-[10px] font-black uppercase text-slate-500">Taxa</th>
+                                        <th class="px-3 py-2 text-[10px] font-black uppercase text-slate-500">Unidade</th>
+                                        <th class="px-3 py-2 text-[10px] font-black uppercase text-slate-500">Méd.Pts<br><span class="text-[8px] text-indigo-400">70%</span></th>
+                                        <th class="px-3 py-2 text-[10px] font-black uppercase text-slate-500">Taxa<br><span class="text-[8px] text-indigo-400">30%</span></th>
+                                        <th class="px-3 py-2 text-[10px] font-black uppercase text-slate-500">Score</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    ${counselorRanking.length === 0 ? `<tr><td colspan="3" class="py-4 text-center text-slate-500 text-sm">Sem dados.</td></tr>` :
-                                      counselorRanking.map(c => `
+                                    ${counselorMerit.length === 0 ? `<tr><td colspan="4" class="py-4 text-center text-slate-500 text-sm">Sem dados.</td></tr>` :
+                                      counselorMerit.map((c, i) => {
+                                        const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
+                                        return `
                                         <tr class="border-b border-slate-800/80 hover:bg-slate-800 transition-colors">
-                                            <td class="px-3 py-3 text-xs font-bold text-white">${c.unit}</td>
-                                            <td class="px-3 py-3 text-xs text-slate-400">${c.filled}/${c.total}</td>
-                                            <td class="px-3 py-3">
-                                                <span class="px-2 py-1 rounded-md text-[10px] font-black border ${
+                                            <td class="px-3 py-2.5 text-xs font-bold text-white">${medal} ${c.unit}</td>
+                                            <td class="px-3 py-2.5 text-xs text-brand-gold font-black">${c.unitAvg}</td>
+                                            <td class="px-3 py-2.5">
+                                                <span class="px-1.5 py-0.5 rounded text-[10px] font-black border ${
                                                     c.rate >= 90 ? 'bg-green-500/10 text-green-400 border-green-500/30'
                                                     : c.rate >= 70 ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30'
                                                     : 'bg-red-500/10 text-red-400 border-red-500/30'
                                                 }">${c.rate}%</span>
                                             </td>
-                                        </tr>`).join('')}
+                                            <td class="px-3 py-2.5 text-sm font-black text-white">${c.finalScore}</td>
+                                        </tr>`;
+                                      }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                        <p class="text-[9px] text-slate-600 mt-2 text-center">Score = (Méd.Pts ÷ Máx) × 70 + (Taxa ÷ 100) × 30</p>
+                    </div>
+
+                    <!-- 🏅 Top Desbravadores -->
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                                <i data-lucide="medal" class="w-3 h-3 text-amber-400"></i>Top Desbravadores
+                            </p>
+                            <select id="analytics-unit-filter" onchange="App.filterTopMembers(this.value)"
+                                    class="bg-slate-800 text-[10px] text-white border border-slate-700 rounded-lg px-2 py-1 focus:outline-none">
+                                <option value="all">Todas Unidades</option>
+                                ${unitFilterOpts}
+                            </select>
+                        </div>
+                        <div id="top-members-list" class="bg-slate-900 border border-slate-700 rounded-xl overflow-hidden">
+                            <table class="w-full text-left">
+                                <thead class="bg-slate-950 border-b border-slate-700">
+                                    <tr>
+                                        <th class="px-2 py-2 text-[10px] font-black uppercase text-slate-500 w-8">#</th>
+                                        <th class="px-2 py-2 text-[10px] font-black uppercase text-slate-500">Nome</th>
+                                        <th class="px-2 py-2 text-[10px] font-black uppercase text-slate-500">Unid.</th>
+                                        <th class="px-2 py-2 text-[10px] font-black uppercase text-slate-500 text-right">Pts</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${top20.length === 0 ? `<tr><td colspan="4" class="py-4 text-center text-slate-500 text-sm">Sem dados.</td></tr>` :
+                                      top20.map((m, i) => {
+                                        const posIcon = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `<span class="text-slate-500 text-xs">${i+1}</span>`;
+                                        return `
+                                        <tr class="border-b border-slate-800/50 hover:bg-slate-800/50 transition-colors" data-unit="${m.unitId}">
+                                            <td class="px-2 py-2 text-center">${posIcon}</td>
+                                            <td class="px-2 py-2 text-xs font-bold text-white">${m.name}</td>
+                                            <td class="px-2 py-2 text-[10px] text-slate-400">${m.unit}</td>
+                                            <td class="px-2 py-2 text-xs font-black text-brand-gold text-right">${m.totalPts}</td>
+                                        </tr>`;
+                                      }).join('')}
                                 </tbody>
                             </table>
                         </div>
