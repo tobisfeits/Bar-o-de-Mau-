@@ -226,8 +226,13 @@ export const RBAC = {
      * @returns {Array} Filtered units
      */
     filterUnits(units) {
-        // Global exclusion: Hide any unit with 'TESTE' in name for ALL users, including Admin
-        let visibleUnits = units.filter(u => !u.name.toUpperCase().includes('TESTE'));
+        // Only Tobias (or Super Admin) should see the Test Unit
+        const isTobias = this.currentUser?.name === 'Tobias';
+        let visibleUnits = units;
+        
+        if (!isTobias) {
+            visibleUnits = units.filter(u => !u.name.toUpperCase().includes('TESTE'));
+        }
 
         if (this.isSuperAdmin() || this.isAuxiliar()) return visibleUnits;
 
