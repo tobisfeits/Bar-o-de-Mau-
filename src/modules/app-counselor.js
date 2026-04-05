@@ -238,10 +238,12 @@ export const CounselorMethods = {
             // Fetch all scores in range to cache them before parallel calc
             await Store.fetchScoresRange(rangeStart, rangeEnd);
 
-            // Fetch counselors from app_users table (role = 'Conselheiro')
+            // Fetch counselors from app_users table (role = 'Conselheiro' or 'super_admin' with unit)
             const allUsers = await Store.getUsers();
             const counselorUsers = allUsers.filter(u => 
-                u.role && u.role.toLowerCase() === 'conselheiro' && u.unidade_id
+                u.role && 
+                (u.role.toLowerCase() === 'conselheiro' || u.role.toLowerCase() === 'super_admin') && 
+                u.unidade_id
             );
             const units = await Store.getUnits();
 
