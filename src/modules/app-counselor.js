@@ -238,28 +238,33 @@ export const CounselorMethods = {
             // Fetch all scores in range to cache them before parallel calc
             await Store.fetchScoresRange(rangeStart, rangeEnd);
 
-            const members = await Store.getMembers();
-            const counselors = members.filter(m => m.isCounselor);
+            // Fetch counselors from app_users table (role = 'Conselheiro')
+            const allUsers = await Store.getUsers();
+            const counselorUsers = allUsers.filter(u => 
+                u.role && u.role.toLowerCase() === 'conselheiro' && u.unidade_id
+            );
             const units = await Store.getUnits();
 
-            const rankingsPromises = counselors.map(async (counselor) => {
-                const unit = units.find(u => u.id === counselor.unitId);
-                if (!unit || unit.name === 'Unidade Teste') {
+            console.log(`📊 Ranking: Found ${counselorUsers.length} counselors from app_users`);
+
+            const rankingsPromises = counselorUsers.map(async (counselor) => {
+                const unit = units.find(u => u.id === counselor.unidade_id);
+                if (!unit || unit.name.toUpperCase().includes('TESTE')) {
                     return null;
                 }
 
                 // 70%: Average points of desbravadores in this unit
                 const unitEfficiency = await Utils.calculateUnitEfficiencyRange(unit.id, rangeStart, rangeEnd);
-                // 30%: Personal counselor evaluation scores (toggles)
+                // 30%: Personal counselor evaluation scores (toggles from counselor_scores)
                 const personalScore = await Utils.calculateCounselorPersonalScoreRange(counselor.id, rangeStart, rangeEnd);
                 // Final: (Efficiency × 0.7) + (Personal × 0.3)
                 const finalScore = (unitEfficiency * 0.7) + (personalScore * 0.3);
 
-                return { counselor, unit, unitEfficiency, personalScore, finalScore };
+                return { counselor: { id: counselor.id, name: counselor.name }, unit, unitEfficiency, personalScore, finalScore };
             });
 
             const rankings = (await Promise.all(rankingsPromises))
-                .filter(r => r !== null) // remove null (Unidade Teste)
+                .filter(r => r !== null)
                 .sort((a, b) => b.finalScore - a.finalScore);
 
             const medals = ['🥇', '🥈', '🥉'];
