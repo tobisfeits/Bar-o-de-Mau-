@@ -1,7 +1,7 @@
 // Service Worker for Barão de Mauá PWA - IMPROVED VERSION
 // Auto-update with network-first strategy for critical files
 
-const CACHE_VERSION = '2026.04.05.069'; // v69 - Fix PIN hashing case mismatch
+const CACHE_VERSION = '2026.04.05.070'; // v70 - Fix Analytics crash (filled ref) + is_absent normalization
 const CACHE_NAME = `desbravadores-v${CACHE_VERSION}`;
 const RUNTIME_CACHE = `desbravadores-runtime-v${CACHE_VERSION}`;
 

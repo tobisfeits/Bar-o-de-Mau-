@@ -1657,7 +1657,7 @@ export const ReportMethods = {
                 .forEach(i => { ITEM_POINTS[i.id] = i.points; });
 
             function calcScore(memberScore) {
-                if (!memberScore || memberScore.is_absent) return 0;
+                if (!memberScore || memberScore.isAbsent) return 0;
                 let pts = 0;
                 Object.entries(memberScore.items || {}).forEach(([id, val]) => {
                     if (val === true && ITEM_POINTS[id]) pts += ITEM_POINTS[id];
@@ -1747,7 +1747,6 @@ export const ReportMethods = {
                         unitAvg: unitAvg.toFixed(1),
                         evalScore,
                         evalLabel,
-                        filled, total,
                         finalScore
                     });
                 }
