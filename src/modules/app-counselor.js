@@ -238,19 +238,39 @@ export const CounselorMethods = {
             // Fetch all scores in range to cache them before parallel calc
             await Store.fetchScoresRange(rangeStart, rangeEnd);
 
-            const members = await Store.getMembers();
-            const counselors = members.filter(m => m.isCounselor);
             const units = await Store.getUnits();
+            const visibleUnits = units.filter(u => u.name !== 'Unidade Teste');
 
-            const rankingsPromises = counselors.map(async (counselor) => {
-                const unit = units.find(u => u.id === counselor.unitId);
-                const unitEfficiency = await Utils.calculateUnitEfficiencyRange(counselor.unitId, rangeStart, rangeEnd);
-                const personalScore = await Utils.calculateCounselorPersonalScoreRange(counselor.id, rangeStart, rangeEnd);
-                const finalScore = (unitEfficiency * 0.7) + (personalScore * 0.3);
-                return { counselor, unit, unitEfficiency, personalScore, finalScore };
+            const savedEvals = JSON.parse(localStorage.getItem('cd_counselor_evals') || '{}');
+            const monthKey = rangeEnd.substring(0, 7);
+
+            const rankingsPromises = visibleUnits.map(async (unit) => {
+                // Efficiency 0-100%
+                const unitEfficiency = await Utils.calculateUnitEfficiencyRange(unit.id, rangeStart, rangeEnd);
+                
+                // Manual Eval 0-100%
+                const manualEval = savedEvals[`${monthKey}_${unit.id}`];
+                let personalScore = 0;
+                let evalLabel = 'Pend.';
+                
+                if (manualEval !== undefined && manualEval !== '') {
+                    personalScore = parseInt(manualEval) || 0;
+                    evalLabel = `${personalScore}%`;
+                }
+
+                // Final Score
+                let finalScore = (unitEfficiency * 0.7) + (personalScore * 0.3);
+                
+                // Se a eficiência for 0 e não houver avaliação, considera 0 para não renderizar lixo
+                if (unitEfficiency === 0 && evalLabel === 'Pend.') finalScore = 0;
+
+                return { unit, unitEfficiency, personalScore, evalLabel, finalScore };
             });
 
-            const rankings = (await Promise.all(rankingsPromises))
+            const allRankings = await Promise.all(rankingsPromises);
+            // v66: Filtrar unidades que não têm pontuação alguma no período
+            const rankings = allRankings
+                .filter(r => r.unitEfficiency > 0 || r.evalLabel !== 'Pend.')
                 .sort((a, b) => b.finalScore - a.finalScore);
 
             const medals = ['🥇', '🥈', '🥉'];
@@ -318,31 +338,27 @@ export const CounselorMethods = {
                                 <div class="flex items-center gap-3">
                                     <span class="text-2xl">${index < 3 ? medals[index] : `${index + 1}º`}</span>
                                     <div>
-                                        <h3 class="font-bold text-white text-sm">${Sanitizer.normalizeName(rank.counselor.name)}</h3>
-                                        <p class="text-xs text-slate-500">${rank.unit?.name || '—'}</p>
+                                        <h3 class="font-bold text-white text-sm">${rank.unit.name}</h3>
+                                        <p class="text-[10px] text-slate-500 uppercase tracking-widest mt-0.5">Equipe</p>
                                     </div>
                                 </div>
                                 <div class="text-right">
                                     <p class="text-2xl font-black ${index < 3 ? 'text-brand-gold' : 'text-white'}">
                                         ${rank.finalScore.toFixed(1)}
                                     </p>
-                                    <p class="text-xs text-slate-500">pontos</p>
+                                    <p class="text-[10px] text-slate-500 uppercase">Score</p>
                                 </div>
                             </div>
                             <div class="grid grid-cols-2 gap-2 pt-3 border-t border-slate-800">
                                 <div class="bg-slate-950 rounded-lg p-2">
-                                    <p class="text-xs text-slate-500 mb-1">Eficiência (70%)</p>
+                                    <p class="text-[10px] text-slate-500 mb-0.5 uppercase tracking-wide">Eficiência (70%)</p>
                                     <p class="text-sm font-bold text-blue-400">${rank.unitEfficiency.toFixed(1)}%</p>
                                 </div>
                                 <div class="bg-slate-950 rounded-lg p-2">
-                                    <p class="text-xs text-slate-500 mb-1">Pessoal (30%)</p>
-                                    <p class="text-sm font-bold text-green-400">${rank.personalScore.toFixed(1)}%</p>
+                                    <p class="text-[10px] text-slate-500 mb-0.5 uppercase tracking-wide">Pessoal (30%)</p>
+                                    <p class="text-sm font-bold ${rank.evalLabel === 'Pend.' ? 'text-amber-500' : 'text-green-400'}">${rank.evalLabel}</p>
                                 </div>
                             </div>
-                            <button onclick="App.navigate('counselor-evaluation', { counselorId: '${rank.counselor.id}' })"
-                                    class="w-full mt-3 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs rounded-lg transition-colors">
-                                Ver/Editar Avaliação
-                            </button>
                         </div>
                     `).join('')}
                 </div>
