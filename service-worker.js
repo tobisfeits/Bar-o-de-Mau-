@@ -1,7 +1,7 @@
 // Service Worker for Barão de Mauá PWA - IMPROVED VERSION
 // Auto-update with network-first strategy for critical files
 
-const CACHE_VERSION = '2026.04.05.067'; // v67 - Fix Dashboard Counselor Ranking using 70/30 Unit Logic
+const CACHE_VERSION = '2026.04.05.068'; // v68 - Fix isAbsent bug, restore individual counselors to Dashboard Ranking
 const CACHE_NAME = `desbravadores-v${CACHE_VERSION}`;
 const RUNTIME_CACHE = `desbravadores-runtime-v${CACHE_VERSION}`;
 

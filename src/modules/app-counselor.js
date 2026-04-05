@@ -238,24 +238,29 @@ export const CounselorMethods = {
             // Fetch all scores in range to cache them before parallel calc
             await Store.fetchScoresRange(rangeStart, rangeEnd);
 
+            const members = await Store.getMembers();
+            const counselors = members.filter(m => m.isCounselor);
             const units = await Store.getUnits();
-            const visibleUnits = units.filter(u => u.name !== 'Unidade Teste');
 
             const savedEvals = JSON.parse(localStorage.getItem('cd_counselor_evals') || '{}');
             const monthKey = rangeEnd.substring(0, 7);
 
-            const rankingsPromises = visibleUnits.map(async (unit) => {
-                // Efficiency 0-100%
-                const unitEfficiency = await Utils.calculateUnitEfficiencyRange(unit.id, rangeStart, rangeEnd);
-                
-                // Manual Eval 0-100%
-                const manualEval = savedEvals[`${monthKey}_${unit.id}`];
-                let personalScore = 0;
+            const rankingsPromises = counselors.map(async (counselor) => {
+                const unit = units.find(u => u.id === counselor.unitId);
+                let unitEfficiency = 0;
                 let evalLabel = 'Pend.';
-                
-                if (manualEval !== undefined && manualEval !== '') {
-                    personalScore = parseInt(manualEval) || 0;
-                    evalLabel = `${personalScore}%`;
+                let personalScore = 0;
+
+                if (unit && unit.name !== 'Unidade Teste') {
+                    // Efficiency 0-100%
+                    unitEfficiency = await Utils.calculateUnitEfficiencyRange(unit.id, rangeStart, rangeEnd);
+                    
+                    // Manual Eval 0-100%
+                    const manualEval = savedEvals[`${monthKey}_${unit.id}`];
+                    if (manualEval !== undefined && manualEval !== '') {
+                        personalScore = parseInt(manualEval) || 0;
+                        evalLabel = `${personalScore}%`;
+                    }
                 }
 
                 // Final Score
@@ -264,7 +269,7 @@ export const CounselorMethods = {
                 // Se a eficiência for 0 e não houver avaliação, considera 0 para não renderizar lixo
                 if (unitEfficiency === 0 && evalLabel === 'Pend.') finalScore = 0;
 
-                return { unit, unitEfficiency, personalScore, evalLabel, finalScore };
+                return { counselor, unit, unitEfficiency, personalScore, evalLabel, finalScore };
             });
 
             const allRankings = await Promise.all(rankingsPromises);
@@ -338,8 +343,8 @@ export const CounselorMethods = {
                                 <div class="flex items-center gap-3">
                                     <span class="text-2xl">${index < 3 ? medals[index] : `${index + 1}º`}</span>
                                     <div>
-                                        <h3 class="font-bold text-white text-sm">${rank.unit.name}</h3>
-                                        <p class="text-[10px] text-slate-500 uppercase tracking-widest mt-0.5">Equipe</p>
+                                        <h3 class="font-bold text-white text-sm">${Sanitizer.normalizeName(rank.counselor.name)}</h3>
+                                        <p class="text-[10px] text-slate-500 uppercase tracking-widest mt-0.5">${rank.unit?.name || '—'}</p>
                                     </div>
                                 </div>
                                 <div class="text-right">

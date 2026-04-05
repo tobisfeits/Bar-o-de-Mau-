@@ -295,7 +295,7 @@ export const DataAdapter = {
                     scoresByDate[score.date] = {};
                 }
                 scoresByDate[score.date][score.member_id] = {
-                    is_absent: score.is_absent,
+                    isAbsent: score.is_absent,
                     items: this._normalizeItems(score.items),
                     created_by: score.created_by,
                     created_by_id: score.created_by_id,
