@@ -506,8 +506,8 @@ export const AuthMethods = {
     },
 
     async changePassword() {
-        const newPass = document.getElementById('new-password').value;
-        const confirmPass = document.getElementById('confirm-password').value;
+        const newPass = document.getElementById('new-password').value.trim().toLowerCase();
+        const confirmPass = document.getElementById('confirm-password').value.trim().toLowerCase();
         const user = Store.getCurrentUser();
 
         // Use hasher validation for strength
