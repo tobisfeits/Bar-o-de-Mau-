@@ -388,9 +388,9 @@ export const AuthMethods = {
             this.startSessionTimeout();
             this.setupActivityListeners();
 
-            // Verificar se precisa trocar senha
-            if (user.must_change_password) {
-                console.log('🔐 Usuário precisa trocar senha');
+            // Verificar se precisa trocar senha (v66: also check needs_password_reset from DB)
+            if (user.must_change_password || user.needs_password_reset) {
+                console.log('🔐 Usuário precisa definir PIN pessoal');
                 this.navigate('password-change');
                 return;
             }
@@ -540,7 +540,8 @@ export const AuthMethods = {
 
             const updateData = {
                 pin: newPass.toLowerCase(),
-                must_change_password: false
+                must_change_password: false,
+                needs_password_reset: false  // v66: clear DB flag too
             };
 
             if (hashedPIN) {

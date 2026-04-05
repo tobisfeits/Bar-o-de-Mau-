@@ -31,7 +31,7 @@ export const RBAC = {
         try {
             const { data, error } = await window.supabaseClient
                 .from('app_users')
-                .select('id, name, role, unidade_id')
+                .select('id, name, role, unidade_id, needs_password_reset')
                 .eq('name', userName)
                 .single();
 

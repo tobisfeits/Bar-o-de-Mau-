@@ -1,7 +1,7 @@
 // Service Worker for Barão de Mauá PWA - IMPROVED VERSION
 // Auto-update with network-first strategy for critical files
 
-const CACHE_VERSION = '2026.04.05.065'; // v65 - Score normalizer + 70/30 meritocracy + top desbravadores
+const CACHE_VERSION = '2026.04.05.066'; // v66 - Restricted access, PIN reset, 30% manual eval
 const CACHE_NAME = `desbravadores-v${CACHE_VERSION}`;
 const RUNTIME_CACHE = `desbravadores-runtime-v${CACHE_VERSION}`;
 

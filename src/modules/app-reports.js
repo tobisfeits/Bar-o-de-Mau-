@@ -886,6 +886,23 @@ export const ReportMethods = {
         });
     },
 
+    saveCounselorEval(month, unitId, value) {
+        const evals = JSON.parse(localStorage.getItem('cd_counselor_evals') || '{}');
+        const key = `${month}_${unitId}`;
+        if (value === '' || value === null) {
+            delete evals[key];
+        } else {
+            evals[key] = Math.min(100, Math.max(0, parseInt(value) || 0));
+        }
+        localStorage.setItem('cd_counselor_evals', JSON.stringify(evals));
+    },
+
+    recalcMeritocracy() {
+        // Simply re-render the analytics tab to pick up new eval values
+        this.renderActiveReportTab();
+        Toast.show('Ranking recalculado!', 'success');
+    },
+
     async exportAnalyticsCSV() {
         try {
             const [allMembers, allUnits, allScores, meetings] = await Promise.all([
@@ -1688,8 +1705,9 @@ export const ReportMethods = {
 
             const maxUnitAvg = unitRanking[0]?.avg || 1;
 
-            // ── Counselor Ranking — 70/30 Meritocracy Model (v65) ──────────
-            // 70% = unit avg pts per member, 30% = completion rate
+            // ── Counselor Ranking — 70/30 Meritocracy Model (v66) ──────────
+            // 70% = unit avg pts per member, 30% = manual leadership eval (or completion rate fallback)
+            const savedEvals = JSON.parse(localStorage.getItem('cd_counselor_evals') || '{}');
             const counselorMerit = [];
             const maxPossibleAvg = maxUnitAvg; // normalize against best unit
             visibleUnits.forEach(u => {
@@ -1699,25 +1717,36 @@ export const ReportMethods = {
                 const us = unitStats[u.id];
                 const unitAvg = us && us.memberCount > 0 ? us.totalPts / us.memberCount : 0;
                 const unitScore70 = maxPossibleAvg > 0 ? (unitAvg / maxPossibleAvg) * 70 : 0;
-                // 30%: completion rate
-                let filled = 0, total = 0;
-                unitMeetings.forEach(meeting => {
-                    const dayScores = allScores[meeting.date] || {};
-                    unitMembers.forEach(member => {
-                        if (!member.joinedAt || member.joinedAt <= meeting.date) {
-                            total++;
-                            if (dayScores[member.id]) filled++;
-                        }
+                // 30%: manual eval if available, else completion rate fallback
+                const evalKey = `${selectedMonth}_${u.id}`;
+                const manualEval = savedEvals[evalKey];
+                let evalScore, evalLabel;
+                if (manualEval !== undefined && manualEval !== '') {
+                    evalScore = parseInt(manualEval) || 0;
+                    evalLabel = `${evalScore}%`;
+                } else {
+                    // Fallback: completion rate
+                    let filled = 0, total = 0;
+                    unitMeetings.forEach(meeting => {
+                        const dayScores = allScores[meeting.date] || {};
+                        unitMembers.forEach(member => {
+                            if (!member.joinedAt || member.joinedAt <= meeting.date) {
+                                total++;
+                                if (dayScores[member.id]) filled++;
+                            }
+                        });
                     });
-                });
-                const rate = total > 0 ? Math.round((filled / total) * 100) : 0;
-                const compScore30 = (rate / 100) * 30;
+                    evalScore = total > 0 ? Math.round((filled / total) * 100) : 0;
+                    evalLabel = `${evalScore}%*`;
+                }
+                const compScore30 = (evalScore / 100) * 30;
                 const finalScore = Math.round(unitScore70 + compScore30);
-                if (total > 0 || (us && us.memberCount > 0)) {
+                if (unitMembers.length > 0 || (us && us.memberCount > 0)) {
                     counselorMerit.push({
                         unit: u.name,
                         unitAvg: unitAvg.toFixed(1),
-                        rate,
+                        evalScore,
+                        evalLabel,
                         filled, total,
                         finalScore
                     });
@@ -1838,7 +1867,7 @@ export const ReportMethods = {
                                     <tr>
                                         <th class="px-3 py-2 text-[10px] font-black uppercase text-slate-500">Unidade</th>
                                         <th class="px-3 py-2 text-[10px] font-black uppercase text-slate-500">Méd.Pts<br><span class="text-[8px] text-indigo-400">70%</span></th>
-                                        <th class="px-3 py-2 text-[10px] font-black uppercase text-slate-500">Taxa<br><span class="text-[8px] text-indigo-400">30%</span></th>
+                                        <th class="px-3 py-2 text-[10px] font-black uppercase text-slate-500">Aval.<br><span class="text-[8px] text-indigo-400">30%</span></th>
                                         <th class="px-3 py-2 text-[10px] font-black uppercase text-slate-500">Score</th>
                                     </tr>
                                 </thead>
@@ -1852,10 +1881,10 @@ export const ReportMethods = {
                                             <td class="px-3 py-2.5 text-xs text-brand-gold font-black">${c.unitAvg}</td>
                                             <td class="px-3 py-2.5">
                                                 <span class="px-1.5 py-0.5 rounded text-[10px] font-black border ${
-                                                    c.rate >= 90 ? 'bg-green-500/10 text-green-400 border-green-500/30'
-                                                    : c.rate >= 70 ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30'
+                                                    c.evalScore >= 90 ? 'bg-green-500/10 text-green-400 border-green-500/30'
+                                                    : c.evalScore >= 70 ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30'
                                                     : 'bg-red-500/10 text-red-400 border-red-500/30'
-                                                }">${c.rate}%</span>
+                                                }">${c.evalLabel}</span>
                                             </td>
                                             <td class="px-3 py-2.5 text-sm font-black text-white">${c.finalScore}</td>
                                         </tr>`;
@@ -1863,7 +1892,36 @@ export const ReportMethods = {
                                 </tbody>
                             </table>
                         </div>
-                        <p class="text-[9px] text-slate-600 mt-2 text-center">Score = (Méd.Pts ÷ Máx) × 70 + (Taxa ÷ 100) × 30</p>
+                        <p class="text-[9px] text-slate-600 mt-2 text-center">Score = (Méd.Pts ÷ Máx) × 70 + (Avaliação ÷ 100) × 30</p>
+                    </div>
+
+                    <!-- 📝 Avaliação de Liderança (30% Manual Entry) -->
+                    <div>
+                        <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                            <i data-lucide="clipboard-pen" class="w-3 h-3 text-purple-400"></i>Avaliação de Liderança (30%)
+                        </p>
+                        <p class="text-[9px] text-slate-600 mb-3">Pontualidade · Uniforme · Participação · Organização · Presença em Reuniões</p>
+                        <div class="space-y-2">
+                            ${visibleUnits.map(u => {
+                                const savedEvals = JSON.parse(localStorage.getItem('cd_counselor_evals') || '{}');
+                                const key = `${selectedMonth}_${u.id}`;
+                                const savedVal = savedEvals[key] ?? '';
+                                return `
+                            <div class="bg-slate-900 rounded-xl p-3 border border-slate-800 flex items-center gap-3">
+                                <span class="text-xs font-bold text-white flex-1 truncate">${u.name}</span>
+                                <input type="number" min="0" max="100" step="5" placeholder="—"
+                                       value="${savedVal}"
+                                       id="eval-${u.id}"
+                                       onchange="App.saveCounselorEval('${selectedMonth}','${u.id}',this.value)"
+                                       class="w-16 bg-slate-800 text-center text-white font-black text-sm border border-slate-700 rounded-lg py-1.5 focus:border-purple-400 focus:outline-none">
+                                <span class="text-[10px] text-slate-500 w-5">/100</span>
+                            </div>`;
+                            }).join('')}
+                        </div>
+                        <button onclick="App.recalcMeritocracy()"
+                                class="mt-3 w-full py-2 text-xs font-black text-purple-400 border border-purple-500/30 bg-purple-500/10 rounded-xl hover:bg-purple-500/20 transition-colors flex items-center justify-center gap-2">
+                            <i data-lucide="refresh-cw" class="w-3 h-3"></i>Recalcular com Avaliações
+                        </button>
                     </div>
 
                     <!-- 🏅 Top Desbravadores -->
