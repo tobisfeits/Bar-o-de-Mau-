@@ -1,7 +1,7 @@
 // Service Worker for Barão de Mauá PWA - IMPROVED VERSION
 // Auto-update with network-first strategy for critical files
 
-const CACHE_VERSION = '2026.04.04.058.1'; // v58.1 - Counselor ranking unit-based score fetch
+const CACHE_VERSION = '2026.04.04.064'; // v64 - Role normalization (Conselheiro/Diretoria case-fix)
 const CACHE_NAME = `desbravadores-v${CACHE_VERSION}`;
 const RUNTIME_CACHE = `desbravadores-runtime-v${CACHE_VERSION}`;
 

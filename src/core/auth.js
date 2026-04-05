@@ -8,10 +8,11 @@ export const RBAC = {
     // Current user data with role and unit
     currentUser: null,
 
-    // Role definitions
+    // Role definitions (v64: case-insensitive — DB may store 'Conselheiro'/'Diretoria' with capitals)
     ROLES: {
         SUPER_ADMIN: 'super_admin',
         CONSELHEIRO: 'conselheiro',
+        DIRETORIA: 'diretoria',
         DESBRAVADOR: 'desbravador',
         AUXILIAR: 'auxiliar'
     },
@@ -73,7 +74,8 @@ export const RBAC = {
      * @returns {string|null}
      */
     getUserRole() {
-        return this.currentUser?.role || null;
+        // v64: normalize to lowercase to handle DB values like 'Conselheiro', 'Diretoria'
+        return this.currentUser?.role?.toLowerCase() || null;
     },
 
     /**
@@ -98,6 +100,14 @@ export const RBAC = {
      */
     isConselheiro() {
         return this.getUserRole() === this.ROLES.CONSELHEIRO;
+    },
+
+    /**
+     * Check if user is Diretoria (v64: new role from DB patch)
+     * @returns {boolean}
+     */
+    isDiretoria() {
+        return this.getUserRole() === this.ROLES.DIRETORIA;
     },
 
     /**
