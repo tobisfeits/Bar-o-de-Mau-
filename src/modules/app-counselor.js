@@ -256,18 +256,34 @@ export const CounselorMethods = {
                 }
 
                 // 70%: Average points of desbravadores in this unit
-                const unitEfficiency = await Utils.calculateUnitEfficiencyRange(unit.id, rangeStart, rangeEnd);
+                const unitData = await Utils.calculateUnitEfficiencyRange(unit.id, rangeStart, rangeEnd);
                 // 30%: Personal counselor evaluation scores (toggles from counselor_scores)
-                const personalScore = await Utils.calculateCounselorPersonalScoreRange(counselor.id, rangeStart, rangeEnd);
-                // Final: (Efficiency × 0.7) + (Personal × 0.3)
-                const finalScore = (unitEfficiency * 0.7) + (personalScore * 0.3);
+                const personalData = await Utils.calculateCounselorPersonalScoreRange(counselor.id, rangeStart, rangeEnd);
+                
+                let finalScore = null;
+                if (unitData.score !== null && personalData.score !== null) {
+                    finalScore = (unitData.score * 0.7) + (personalData.score * 0.3);
+                }
 
-                return { counselor: { id: counselor.id, name: counselor.name }, unit, unitEfficiency, personalScore, finalScore };
+                return { 
+                    counselor: { id: counselor.id, name: counselor.name }, 
+                    unit, 
+                    unitEfficiency: unitData.score, 
+                    coverageText: unitData.coverageText,
+                    evaluatedCount: unitData.evaluatedCount,
+                    personalScore: personalData.score, 
+                    finalScore 
+                };
             });
 
             const rankings = (await Promise.all(rankingsPromises))
-                .filter(r => r !== null)
-                .sort((a, b) => b.finalScore - a.finalScore);
+                .filter(r => r !== null) // Filters out the explicit null returned for 'TESTE' unit
+                .sort((a, b) => {
+                    if (a.finalScore === null && b.finalScore === null) return 0;
+                    if (a.finalScore === null) return 1;
+                    if (b.finalScore === null) return -1;
+                    return b.finalScore - a.finalScore;
+                });
 
             const medals = ['🥇', '🥈', '🥉'];
             const presets = [
@@ -328,31 +344,37 @@ export const CounselorMethods = {
 
                 <!-- Rankings -->
                 <div class="space-y-3">
-                    ${rankings.map((rank, index) => `
-                        <div class="bg-slate-900 rounded-xl border ${index < 3 ? 'border-brand-gold/30' : 'border-slate-800'} p-4 shadow-sm">
+                    ${rankings.map((rank, index) => {
+                        const isNull = rank.finalScore === null;
+                        const medalIndex = rank.finalScore !== null && index < 3 ? medals[index] : `${index + 1}º`;
+                        return `
+                        <div class="bg-slate-900 rounded-xl border ${!isNull && index < 3 ? 'border-brand-gold/30' : 'border-slate-800'} p-4 shadow-sm ${isNull ? 'opacity-60' : ''}">
                             <div class="flex items-start justify-between mb-3">
                                 <div class="flex items-center gap-3">
-                                    <span class="text-2xl">${index < 3 ? medals[index] : `${index + 1}º`}</span>
+                                    <span class="text-2xl">${isNull ? '—' : medalIndex}</span>
                                     <div>
                                         <h3 class="font-bold text-white text-sm">${Sanitizer.normalizeName(rank.counselor.name)}</h3>
                                         <p class="text-[10px] text-slate-500 uppercase tracking-widest mt-0.5">${rank.unit?.name || '—'}</p>
                                     </div>
                                 </div>
                                 <div class="text-right">
-                                    <p class="text-2xl font-black ${index < 3 ? 'text-brand-gold' : 'text-white'}">
-                                        ${rank.finalScore.toFixed(1)}
+                                    <p class="text-2xl font-black ${!isNull && index < 3 ? 'text-brand-gold' : 'text-white'}">
+                                        ${isNull ? '—' : rank.finalScore.toFixed(1)}
                                     </p>
                                     <p class="text-[10px] text-slate-500 uppercase">Score</p>
                                 </div>
                             </div>
                             <div class="grid grid-cols-2 gap-2 pt-3 border-t border-slate-800">
-                                <div class="bg-slate-950 rounded-lg p-2">
-                                    <p class="text-[10px] text-slate-500 mb-0.5 uppercase tracking-wide">Eficiência (70%)</p>
-                                    <p class="text-sm font-bold text-blue-400">${rank.unitEfficiency.toFixed(1)}%</p>
+                                <div class="bg-slate-950 rounded-lg p-2 relative">
+                                    <div class="flex justify-between items-center mb-0.5">
+                                        <p class="text-[10px] text-slate-500 uppercase tracking-wide">Eficiência (70%)</p>
+                                        <span class="text-[8px] font-bold ${rank.evaluatedCount === 0 ? 'text-red-400 bg-red-400/10' : 'text-slate-400 bg-slate-800'} px-1.5 py-0.5 rounded" title="Cobertura: Membros Avaliados / Total">Cob: ${rank.coverageText}</span>
+                                    </div>
+                                    <p class="text-sm font-bold ${rank.unitEfficiency !== null ? 'text-blue-400' : 'text-slate-600'}">${rank.unitEfficiency !== null ? rank.unitEfficiency.toFixed(1) + '%' : '—'}</p>
                                 </div>
                                 <div class="bg-slate-950 rounded-lg p-2">
                                     <p class="text-[10px] text-slate-500 mb-0.5 uppercase tracking-wide">Pessoal (30%)</p>
-                                    <p class="text-sm font-bold ${rank.personalScore > 0 ? 'text-green-400' : 'text-amber-500'}">${rank.personalScore.toFixed(1)}%</p>
+                                    <p class="text-sm font-bold ${rank.personalScore !== null ? (rank.personalScore >= 80 ? 'text-green-400' : 'text-amber-500') : 'text-slate-600'}">${rank.personalScore !== null ? rank.personalScore.toFixed(1) + '%' : '—'}</p>
                                 </div>
                             </div>
                             <button onclick="App.navigate('counselor-evaluation', { counselorId: '${rank.counselor.id}' })"
@@ -360,7 +382,8 @@ export const CounselorMethods = {
                                 Ver/Editar Avaliação
                             </button>
                         </div>
-                    `).join('')}
+                        `;
+                    }).join('')}
                 </div>
 
                 ${rankings.length === 0 ? `

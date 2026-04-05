@@ -126,51 +126,84 @@ export const Utils = {
 
     async calculateUnitEfficiencyRange(unitId, start, end) {
         const members = await Store.getMembersByUnit(unitId);
-        if (members.length === 0) return 0;
+        if (members.length === 0) return { score: null, coverageText: '0/0', evaluatedCount: 0 };
 
         const dates = this._dateRange(start, end);
         const allScores = await Store.getScores();
 
-        let totalObtained = 0, totalPossible = 0;
+        let memberPercentages = [];
+        let evaluatedCount = 0;
 
-        for (const dateKey of dates) {
-            const dayScores = allScores[dateKey] || {};
-            // Only count days where at least one member was scored (avoids empty days)
-            const hasSomeScore = members.some(m => dayScores[m.id] !== undefined);
-            if (!hasSomeScore) continue;
+        for (const member of members) {
+            let memberTotalGanhos = 0;
+            let memberTotalPossivel = 0;
+            let hasAnyEvaluation = false;
 
-            const maxPts = this._maxPointsForDate(dateKey);
-
-            for (const member of members) {
+            for (const dateKey of dates) {
+                const dayScores = allScores[dateKey] || {};
                 const score = dayScores[member.id];
-                totalObtained += this.countTotal(score);
-                totalPossible += maxPts;
+                
+                // Not Evaluated / Null -> Skip. Does not affect denominator.
+                if (score === undefined) continue;
+                
+                hasAnyEvaluation = true;
+                const dayMax = this._maxPointsForDate(dateKey);
+                
+                // Absent -> 0 pts. Otherwise count items.
+                const rawPoints = score.isAbsent ? 0 : this.countTotal(score);
+                // Daily Capping
+                const cappedPoints = Math.min(rawPoints, dayMax);
+
+                memberTotalGanhos += cappedPoints;
+                memberTotalPossivel += dayMax;
+            }
+
+            if (hasAnyEvaluation && memberTotalPossivel > 0) {
+                let p = (memberTotalGanhos / memberTotalPossivel) * 100;
+                memberPercentages.push(Math.min(p, 100)); // Cap member at 100% just in case
+                evaluatedCount++;
             }
         }
 
-        return totalPossible > 0 ? (totalObtained / totalPossible) * 100 : 0;
+        if (evaluatedCount === 0) {
+            return { score: null, coverageText: `0/${members.length}`, evaluatedCount: 0 };
+        }
+
+        const sumEffic = memberPercentages.reduce((a, b) => a + b, 0);
+        return { 
+            score: sumEffic / evaluatedCount, 
+            coverageText: `${evaluatedCount}/${members.length}`,
+            evaluatedCount 
+        };
     },
 
     async calculateCounselorPersonalScoreRange(counselorId, start, end) {
         const allCounselorScores = await Store.getCounselorScores();
         const dates = this._dateRange(start, end);
 
-        let totalObtained = 0, daysLogged = 0;
+        let dayPercentages = [];
+        let daysLogged = 0;
+
+        const maxCounselorPoints = CONFIG.COUNSELOR_ITEMS ? CONFIG.COUNSELOR_ITEMS.reduce((sum, item) => sum + item.points, 0) : 110;
 
         for (const dateKey of dates) {
             const dayScores = allCounselorScores[dateKey] || {};
-            if (!dayScores[counselorId]) continue;
-            totalObtained += this.countCounselorTotal(dayScores[counselorId]);
+            if (dayScores[counselorId] === undefined) continue;
+
+            const rawPoints = this.countCounselorTotal(dayScores[counselorId]);
+            const cappedPoints = Math.min(rawPoints, maxCounselorPoints);
+            const dayPercentage = Math.min((cappedPoints / maxCounselorPoints) * 100, 100);
+
+            dayPercentages.push(dayPercentage);
             daysLogged++;
         }
 
-        if (daysLogged === 0) return 0;
-        return (totalObtained / (daysLogged * CONFIG.TOTAL_COUNSELOR_POINTS)) * 100;
+        if (daysLogged === 0) return { score: null, daysLogged: 0 };
+        const sumPersonal = dayPercentages.reduce((a,b) => a + b, 0);
+        return { score: sumPersonal / daysLogged, daysLogged };
     },
 
     async calculateCounselorFinalScoreRange(counselorId, unitId, start, end) {
-        const unitEfficiency = await this.calculateUnitEfficiencyRange(unitId, start, end);
-        const personalScore = await this.calculateCounselorPersonalScoreRange(counselorId, start, end);
-        return (unitEfficiency * 0.7) + (personalScore * 0.3);
+        return null; // Function moved and explicitly destructured in app-counselor.js instead
     }
 };
