@@ -1,7 +1,7 @@
 // Service Worker for Barão de Mauá PWA - IMPROVED VERSION
 // Auto-update with network-first strategy for critical files
 
-const CACHE_VERSION = '2026.04.05.072'; // v72 - Fix: fetch counselors from app_users instead of members table
+const CACHE_VERSION = '2026.04.05.074'; // v74 - Fix race condition spam in getCounselorScores
 const CACHE_NAME = `desbravadores-v${CACHE_VERSION}`;
 const RUNTIME_CACHE = `desbravadores-runtime-v${CACHE_VERSION}`;
 

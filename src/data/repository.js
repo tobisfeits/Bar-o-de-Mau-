@@ -359,33 +359,50 @@ export const DataAdapter = {
     },
 
     // COUNSELOR SCORES
-    async getCounselorScores() {
-        if (this.useSupabase()) {
-            const { data, error } = await window.supabaseClient
-                .from('counselor_scores')
-                .select('*')
-                .is('deleted_at', null);
-            if (error) {
-                console.error('Erro ao buscar avaliações:', error);
-                return {};
-            }
+    _counselorScoresPromise: null,
 
-            const scoresByDate = {};
-            data.forEach(score => {
-                if (!scoresByDate[score.date]) {
-                    scoresByDate[score.date] = {};
+    async getCounselorScores() {
+        const cached = Cache.get('counselor_scores');
+        if (cached) return cached;
+
+        if (this._counselorScoresPromise) return this._counselorScoresPromise;
+
+        this._counselorScoresPromise = (async () => {
+            if (this.useSupabase()) {
+                const { data, error } = await window.supabaseClient
+                    .from('counselor_scores')
+                    .select('*')
+                    .is('deleted_at', null);
+
+                this._counselorScoresPromise = null; // reset
+
+                if (error) {
+                    console.warn('⚠️ counselor_scores não disponível (tabela pode não existir):', error.message);
+                    Cache.set('counselor_scores', {});
+                    return {};
                 }
-                scoresByDate[score.date][score.counselor_id] = {
-                    items: score.items,
-                    createdBy: score.created_by,
-                    createdById: score.created_by_id,
-                    createdAt: score.created_at
-                };
-            });
-            return scoresByDate;
-        } else {
-            return DevStorage.get(CONFIG.STORAGE_KEYS.COUNSELOR_SCORES) || {};
-        }
+
+                const scoresByDate = {};
+                data.forEach(score => {
+                    if (!scoresByDate[score.date]) {
+                        scoresByDate[score.date] = {};
+                    }
+                    scoresByDate[score.date][score.counselor_id] = {
+                        items: score.items,
+                        createdBy: score.created_by,
+                        createdById: score.created_by_id,
+                        createdAt: score.created_at
+                    };
+                });
+                Cache.set('counselor_scores', scoresByDate);
+                return scoresByDate;
+            } else {
+                this._counselorScoresPromise = null;
+                return DevStorage.get(CONFIG.STORAGE_KEYS.COUNSELOR_SCORES) || {};
+            }
+        })();
+
+        return this._counselorScoresPromise;
     },
 
     async saveCounselorScore(counselorId, dateKey, scoreData) {
