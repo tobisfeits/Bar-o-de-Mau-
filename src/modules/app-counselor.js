@@ -242,40 +242,24 @@ export const CounselorMethods = {
             const counselors = members.filter(m => m.isCounselor);
             const units = await Store.getUnits();
 
-            const savedEvals = JSON.parse(localStorage.getItem('cd_counselor_evals') || '{}');
-            const monthKey = rangeEnd.substring(0, 7);
-
             const rankingsPromises = counselors.map(async (counselor) => {
                 const unit = units.find(u => u.id === counselor.unitId);
-                let unitEfficiency = 0;
-                let evalLabel = 'Pend.';
-                let personalScore = 0;
-
-                if (unit && unit.name !== 'Unidade Teste') {
-                    // Efficiency 0-100%
-                    unitEfficiency = await Utils.calculateUnitEfficiencyRange(unit.id, rangeStart, rangeEnd);
-                    
-                    // Manual Eval 0-100%
-                    const manualEval = savedEvals[`${monthKey}_${unit.id}`];
-                    if (manualEval !== undefined && manualEval !== '') {
-                        personalScore = parseInt(manualEval) || 0;
-                        evalLabel = `${personalScore}%`;
-                    }
+                if (!unit || unit.name === 'Unidade Teste') {
+                    return null;
                 }
 
-                // Final Score
-                let finalScore = (unitEfficiency * 0.7) + (personalScore * 0.3);
-                
-                // Se a eficiência for 0 e não houver avaliação, considera 0 para não renderizar lixo
-                if (unitEfficiency === 0 && evalLabel === 'Pend.') finalScore = 0;
+                // 70%: Average points of desbravadores in this unit
+                const unitEfficiency = await Utils.calculateUnitEfficiencyRange(unit.id, rangeStart, rangeEnd);
+                // 30%: Personal counselor evaluation scores (toggles)
+                const personalScore = await Utils.calculateCounselorPersonalScoreRange(counselor.id, rangeStart, rangeEnd);
+                // Final: (Efficiency × 0.7) + (Personal × 0.3)
+                const finalScore = (unitEfficiency * 0.7) + (personalScore * 0.3);
 
-                return { counselor, unit, unitEfficiency, personalScore, evalLabel, finalScore };
+                return { counselor, unit, unitEfficiency, personalScore, finalScore };
             });
 
-            const allRankings = await Promise.all(rankingsPromises);
-            // v66: Filtrar unidades que não têm pontuação alguma no período
-            const rankings = allRankings
-                .filter(r => r.unitEfficiency > 0 || r.evalLabel !== 'Pend.')
+            const rankings = (await Promise.all(rankingsPromises))
+                .filter(r => r !== null) // remove null (Unidade Teste)
                 .sort((a, b) => b.finalScore - a.finalScore);
 
             const medals = ['🥇', '🥈', '🥉'];
@@ -361,9 +345,13 @@ export const CounselorMethods = {
                                 </div>
                                 <div class="bg-slate-950 rounded-lg p-2">
                                     <p class="text-[10px] text-slate-500 mb-0.5 uppercase tracking-wide">Pessoal (30%)</p>
-                                    <p class="text-sm font-bold ${rank.evalLabel === 'Pend.' ? 'text-amber-500' : 'text-green-400'}">${rank.evalLabel}</p>
+                                    <p class="text-sm font-bold ${rank.personalScore > 0 ? 'text-green-400' : 'text-amber-500'}">${rank.personalScore.toFixed(1)}%</p>
                                 </div>
                             </div>
+                            <button onclick="App.navigate('counselor-evaluation', { counselorId: '${rank.counselor.id}' })"
+                                    class="w-full mt-3 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs rounded-lg transition-colors font-bold uppercase tracking-wider">
+                                Ver/Editar Avaliação
+                            </button>
                         </div>
                     `).join('')}
                 </div>

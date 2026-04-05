@@ -16,6 +16,20 @@ export const Utils = {
             if (level) total += level.points;
         }
 
+        // Add Impacto event items (presenca, uniforme)
+        if (CONFIG.IMPACTO_EVENT && CONFIG.IMPACTO_EVENT.items) {
+            CONFIG.IMPACTO_EVENT.items.forEach(item => {
+                if (scoreRecord.items[item.id] === true) total += item.points;
+            });
+        }
+
+        // Add Holy Week event items (presenca = 20pts)
+        if (CONFIG.HOLY_WEEK_EVENT && CONFIG.HOLY_WEEK_EVENT.items) {
+            CONFIG.HOLY_WEEK_EVENT.items.forEach(item => {
+                if (scoreRecord.items[item.id] === true) total += item.points;
+            });
+        }
+
         return total;
     },
 
@@ -96,6 +110,20 @@ export const Utils = {
         return dates;
     },
 
+    // Helper: determine max points possible for a given date
+    _maxPointsForDate(dateKey) {
+        // Holy Week: only presenca (20pts)
+        if (CONFIG.HOLY_WEEK_EVENT && dateKey >= CONFIG.HOLY_WEEK_EVENT.startDate && dateKey <= CONFIG.HOLY_WEEK_EVENT.endDate) {
+            return CONFIG.HOLY_WEEK_EVENT.maxPoints; // 20
+        }
+        // Impacto: presenca + uniforme (40pts)
+        if (CONFIG.IMPACTO_EVENT && dateKey === CONFIG.IMPACTO_EVENT.date) {
+            return CONFIG.IMPACTO_EVENT.maxPoints; // 40
+        }
+        // Regular meeting
+        return CONFIG.TOTAL_POINTS; // 184
+    },
+
     async calculateUnitEfficiencyRange(unitId, start, end) {
         const members = await Store.getMembersByUnit(unitId);
         if (members.length === 0) return 0;
@@ -111,10 +139,12 @@ export const Utils = {
             const hasSomeScore = members.some(m => dayScores[m.id] !== undefined);
             if (!hasSomeScore) continue;
 
+            const maxPts = this._maxPointsForDate(dateKey);
+
             for (const member of members) {
                 const score = dayScores[member.id];
                 totalObtained += this.countTotal(score);
-                totalPossible += CONFIG.TOTAL_POINTS;
+                totalPossible += maxPts;
             }
         }
 
