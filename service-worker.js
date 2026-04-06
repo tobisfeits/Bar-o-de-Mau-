@@ -1,7 +1,7 @@
 // Service Worker for Barão de Mauá PWA - IMPROVED VERSION
 // Auto-update with network-first strategy for critical files
 
-const CACHE_VERSION = '2026.04.05.076'; // v76 - Restore Unidade Teste visibility for Tobias
+const CACHE_VERSION = '2026.04.06.078'; // v78 - Fix Counselor Ranking Routing and Null UI
 const CACHE_NAME = `desbravadores-v${CACHE_VERSION}`;
 const RUNTIME_CACHE = `desbravadores-runtime-v${CACHE_VERSION}`;
 

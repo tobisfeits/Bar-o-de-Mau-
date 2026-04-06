@@ -15,9 +15,9 @@ export const CounselorMethods = {
     },
 
     async renderCounselorEvaluation(counselorId) {
-        const members = await Store.getMembers();
-        const member = members.find(m => m.id === counselorId);
-        if (!member || !member.isCounselor) {
+        const users = await Store.getUsers();
+        const member = users.find(u => u.id === counselorId);
+        if (!member || (member.role.toLowerCase() !== 'conselheiro' && member.role.toLowerCase() !== 'super_admin')) {
             Toast.show('Conselheiro não encontrado!', 'error');
             this.navigate('dashboard');
             return;
@@ -155,8 +155,8 @@ export const CounselorMethods = {
     },
 
     async saveCounselorScore(counselorId) {
-        const members = await Store.getMembers();
-        const member = members.find(m => m.id === counselorId);
+        const users = await Store.getUsers();
+        const member = users.find(u => u.id === counselorId);
         if (!member) return;
 
         const scoreToggles = document.querySelectorAll('.counselor-toggle');
@@ -344,22 +344,21 @@ export const CounselorMethods = {
 
                 <!-- Rankings -->
                 <div class="space-y-3">
-                    ${rankings.map((rank, index) => {
-                        const isNull = rank.finalScore === null;
-                        const medalIndex = rank.finalScore !== null && index < 3 ? medals[index] : `${index + 1}º`;
+                    ${rankings.filter(r => r.finalScore !== null).map((rank, index) => {
+                        const medalIndex = index < 3 ? medals[index] : `${index + 1}º`;
                         return `
-                        <div class="bg-slate-900 rounded-xl border ${!isNull && index < 3 ? 'border-brand-gold/30' : 'border-slate-800'} p-4 shadow-sm ${isNull ? 'opacity-60' : ''}">
+                        <div class="bg-slate-900 rounded-xl border ${index < 3 ? 'border-brand-gold/30' : 'border-slate-800'} p-4 shadow-sm">
                             <div class="flex items-start justify-between mb-3">
                                 <div class="flex items-center gap-3">
-                                    <span class="text-2xl">${isNull ? '—' : medalIndex}</span>
+                                    <span class="text-2xl">${medalIndex}</span>
                                     <div>
                                         <h3 class="font-bold text-white text-sm">${Sanitizer.normalizeName(rank.counselor.name)}</h3>
                                         <p class="text-[10px] text-slate-500 uppercase tracking-widest mt-0.5">${rank.unit?.name || '—'}</p>
                                     </div>
                                 </div>
                                 <div class="text-right">
-                                    <p class="text-2xl font-black ${!isNull && index < 3 ? 'text-brand-gold' : 'text-white'}">
-                                        ${isNull ? '—' : rank.finalScore.toFixed(1)}
+                                    <p class="text-2xl font-black ${index < 3 ? 'text-brand-gold' : 'text-white'}">
+                                        ${rank.finalScore.toFixed(1)}
                                     </p>
                                     <p class="text-[10px] text-slate-500 uppercase">Score</p>
                                 </div>
@@ -370,11 +369,11 @@ export const CounselorMethods = {
                                         <p class="text-[10px] text-slate-500 uppercase tracking-wide">Eficiência (70%)</p>
                                         <span class="text-[8px] font-bold ${rank.evaluatedCount === 0 ? 'text-red-400 bg-red-400/10' : 'text-slate-400 bg-slate-800'} px-1.5 py-0.5 rounded" title="Cobertura: Membros Avaliados / Total">Cob: ${rank.coverageText}</span>
                                     </div>
-                                    <p class="text-sm font-bold ${rank.unitEfficiency !== null ? 'text-blue-400' : 'text-slate-600'}">${rank.unitEfficiency !== null ? rank.unitEfficiency.toFixed(1) + '%' : '—'}</p>
+                                    <p class="text-sm font-bold text-blue-400">${rank.unitEfficiency.toFixed(1)}%</p>
                                 </div>
                                 <div class="bg-slate-950 rounded-lg p-2">
                                     <p class="text-[10px] text-slate-500 mb-0.5 uppercase tracking-wide">Pessoal (30%)</p>
-                                    <p class="text-sm font-bold ${rank.personalScore !== null ? (rank.personalScore >= 80 ? 'text-green-400' : 'text-amber-500') : 'text-slate-600'}">${rank.personalScore !== null ? rank.personalScore.toFixed(1) + '%' : '—'}</p>
+                                    <p class="text-sm font-bold ${rank.personalScore >= 80 ? 'text-green-400' : 'text-amber-500'}">${rank.personalScore.toFixed(1)}%</p>
                                 </div>
                             </div>
                             <button onclick="App.navigate('counselor-evaluation', { counselorId: '${rank.counselor.id}' })"
@@ -385,6 +384,65 @@ export const CounselorMethods = {
                         `;
                     }).join('')}
                 </div>
+
+                <!-- Pendentes de Avaliação -->
+                ${rankings.some(r => r.finalScore === null) ? `
+                    <div class="mt-8 mb-4 flex items-center justify-center gap-3 opacity-60">
+                        <div class="h-px bg-slate-700 flex-1"></div>
+                        <span class="text-xs font-bold text-slate-400 uppercase tracking-widest">Pendentes de Avaliação</span>
+                        <div class="h-px bg-slate-700 flex-1"></div>
+                    </div>
+                    
+                    <div class="space-y-3">
+                        ${rankings.filter(r => r.finalScore === null).map(rank => {
+                            let missingReason = 'Sem avaliação no período';
+                            if (rank.unitEfficiency === null && rank.personalScore !== null) {
+                                missingReason = 'Falta avaliação da Unidade';
+                            } else if (rank.unitEfficiency !== null && rank.personalScore === null) {
+                                missingReason = 'Falta avaliação Pessoal';
+                            }
+                            
+                            return `
+                            <div class="bg-slate-900 rounded-xl border border-slate-800 p-4 shadow-sm opacity-70">
+                                <div class="flex items-start justify-between mb-2">
+                                    <div class="flex items-center gap-3">
+                                        <div>
+                                            <h3 class="font-bold text-white text-sm">${Sanitizer.normalizeName(rank.counselor.name)}</h3>
+                                            <p class="text-[10px] text-slate-500 uppercase tracking-widest mt-0.5">${rank.unit?.name || '—'}</p>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="text-2xl font-black text-slate-600">—</p>
+                                        <p class="text-[10px] text-slate-500 uppercase">Pendente</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3 px-2 py-1 rounded bg-amber-900/20 border border-amber-500/20 text-center">
+                                    <span class="text-[10px] font-bold text-amber-500 tracking-wide uppercase">${missingReason}</span>
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-2 pt-3 border-t border-slate-800">
+                                    <div class="bg-slate-950 rounded-lg p-2 relative opacity-50">
+                                        <div class="flex justify-between items-center mb-0.5">
+                                            <p class="text-[10px] text-slate-500 uppercase tracking-wide">Eficiência (70%)</p>
+                                            <span class="text-[8px] font-bold ${rank.evaluatedCount === 0 ? 'text-red-400 bg-red-400/10' : 'text-slate-400 bg-slate-800'} px-1.5 py-0.5 rounded" title="Cobertura: Membros Avaliados / Total">Cob: ${rank.coverageText}</span>
+                                        </div>
+                                        <p class="text-sm font-bold ${rank.unitEfficiency !== null ? 'text-blue-400' : 'text-slate-600'}">${rank.unitEfficiency !== null ? rank.unitEfficiency.toFixed(1) + '%' : '—'}</p>
+                                    </div>
+                                    <div class="bg-slate-950 rounded-lg p-2 opacity-50">
+                                        <p class="text-[10px] text-slate-500 mb-0.5 uppercase tracking-wide">Pessoal (30%)</p>
+                                        <p class="text-sm font-bold ${rank.personalScore !== null ? (rank.personalScore >= 80 ? 'text-green-400' : 'text-amber-500') : 'text-slate-600'}">${rank.personalScore !== null ? rank.personalScore.toFixed(1) + '%' : '—'}</p>
+                                    </div>
+                                </div>
+                                <button onclick="App.navigate('counselor-evaluation', { counselorId: '${rank.counselor.id}' })"
+                                        class="w-full mt-3 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs rounded-lg transition-colors font-bold uppercase tracking-wider">
+                                    Ver/Editar Avaliação
+                                </button>
+                            </div>
+                            `;
+                        }).join('')}
+                    </div>
+                ` : ''}
 
                 ${rankings.length === 0 ? `
                     <div class="text-center py-12">
