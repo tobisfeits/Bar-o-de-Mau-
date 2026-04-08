@@ -24,7 +24,7 @@ export const CounselorMethods = {
         }
 
         const units = await Store.getUnits();
-        const unit = units.find(u => u.id === member.unitId);
+        const unit = units.find(u => u.id === (member.unidade_id || member.unitId));
         const dateKey = this.counselorScoringDate || this.currentDate || Utils.getTodayKey();
         this.counselorScoringDate = dateKey;
         const existingScore = await Store.getCounselorScore(counselorId, dateKey) || { items: {} };
@@ -41,7 +41,7 @@ export const CounselorMethods = {
                             <span class="font-bold text-sm uppercase">Voltar</span>
                         </button>
                         <span class="text-brand-gold font-bold text-sm bg-brand-gold/10 px-3 py-1 rounded-full border border-brand-gold/20">
-                            ${unit ? unit.name : ''}
+                            ${unit ? unit.name : 'Sem Unidade'}
                         </span>
                     </div>
                     <!-- Date Picker -->
@@ -75,7 +75,7 @@ export const CounselorMethods = {
                             Conselheiro
                         </span>
                     </div>
-                    <p class="text-sm font-bold text-slate-400 uppercase">Unidade: ${unit.name}</p>
+                    <p class="text-sm font-bold text-slate-400 uppercase">Unidade: ${unit ? unit.name : 'Sem unidade / Global'}</p>
                 </div>
                 
                 <div class="text-center mb-4">
