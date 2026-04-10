@@ -56,8 +56,10 @@ export const ScoringMethods = {
 
 
         const score = await Store.getMemberScore(memberId, dateKey) || { items: {} };
+        const hasSavedScore = score.created_at || score.last_edited_by; // Check if it's a real DB payload
         const unit = (await Store.getUnits()).find(u => u.id === member.unitId);
         const formattedDate = Utils.formatDate(dateKey);
+        const usersMap = await Store.getUsers();
 
         // Photo Upload Button HTML
         const photoUploadHtml = PhotoManager.renderUploadButton(member.id, member.photo_url);
@@ -330,6 +332,39 @@ export const ScoringMethods = {
                         ` : ''}
                     </div>
                 </div>
+
+                ${(() => {
+                    if (!hasSavedScore) return `<div class="mt-4 mb-32 px-4"></div>`;
+                    
+                    let auditText = '';
+                    const lastEditorObj = score.last_edited_by ? usersMap.find(u => u.id === score.last_edited_by) : null;
+                    const creatorObj = score.created_by_id ? usersMap.find(u => u.id === score.created_by_id) : null;
+
+                    if (lastEditorObj) {
+                        auditText = `Última edição por ${lastEditorObj.name}`;
+                        if (score.audit_source) auditText += ` (${score.audit_source})`;
+                    } else if (score.audit_source === 'LEGACY_MIGRATION') {
+                        auditText = `Auditoria: Origem Legada (Sem registro de Editor)`;
+                    } else if (creatorObj) {
+                        auditText = `Criado por ${creatorObj.name}`;
+                        if (score.audit_source) auditText += ` (${score.audit_source})`;
+                    } else if (score.created_by) {
+                        auditText = `Criado por ${score.created_by}`;
+                    } else {
+                        auditText = `Auditoria: Origem Legada (Sem registro de Editor)`;
+                    }
+
+                    let eventTypeText = (score.event_type) 
+                        ? `Tipo de Reunião: ${score.event_type}` 
+                        : `Tipo de Reunião: Deduzido (Legacy)`;
+
+                    return `
+                        <div class="mt-2 mb-32 px-4 flex flex-col items-center justify-center text-[9px] uppercase font-bold tracking-widest text-slate-500/70 text-center">
+                            <span class="bg-slate-900/50 px-3 py-1 rounded-full border border-slate-800/50 mb-1">${eventTypeText}</span>
+                            <span>${auditText}</span>
+                        </div>
+                    `;
+                })()}
 
                 <!-- Footer Actions -->
                 <div class="fixed bottom-0 left-0 right-0 p-4 bg-slate-950/95 backdrop-blur border-t border-slate-800 z-40">
@@ -604,7 +639,25 @@ export const ScoringMethods = {
             items[CONFIG.PRAYER_EVENT.id] = 'absent';
         }
 
-        const scoreData = { isAbsent, items };
+        const saveDate = this.scoringDate || Utils.getTodayKey();
+        
+        let eventType = null;
+        if (typeof isImpactoEvent !== 'undefined' && isImpactoEvent) eventType = 'Impacto Esperança';
+        else if (typeof isHolyWeek !== 'undefined' && isHolyWeek) eventType = 'Semana Santa';
+        else if (typeof isPrayerActive !== 'undefined' && isPrayerActive) eventType = '10 Dias de Oração';
+        else eventType = 'Reunião Regular';
+
+        const scoreData = { 
+            isAbsent, 
+            items,
+            createdBy: Auth.currentUser?.name || 'Sistema',
+            createdById: Auth.currentUser?.id || null, // V80 will use UUID references, keep this for local lookup
+            createdAt: new Date().toISOString(),
+            maxPointsAvailable: Utils._maxPointsForDate(saveDate),
+            eventType: eventType,
+            auditSource: navigator.onLine ? 'PWA_ONLINE' : 'PWA_OFFLINE_SYNC',
+            lastEditedBy: Auth.currentUser?.id || null
+        };
 
         try {
             if (!isAutoSave) {

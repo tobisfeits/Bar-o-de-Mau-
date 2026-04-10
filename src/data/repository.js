@@ -322,7 +322,11 @@ export const DataAdapter = {
                         items: scoreData.items,
                         created_by: scoreData.createdBy,
                         created_by_id: scoreData.createdById,
-                        created_at: scoreData.createdAt
+                        created_at: scoreData.createdAt,
+                        max_points_available: scoreData.maxPointsAvailable,
+                        event_type: scoreData.eventType,
+                        audit_source: scoreData.auditSource || 'PWA_ONLINE',
+                        last_edited_by: scoreData.lastEditedBy
                     }, {
                         onConflict: 'member_id,date'
                     });
@@ -416,7 +420,11 @@ export const DataAdapter = {
                         items: scoreData.items,
                         created_by: scoreData.createdBy,
                         created_by_id: scoreData.createdById,
-                        created_at: scoreData.createdAt
+                        created_at: scoreData.createdAt,
+                        max_points_available: scoreData.maxPointsAvailable,
+                        event_type: scoreData.eventType,
+                        audit_source: scoreData.auditSource || 'PWA_ONLINE',
+                        last_edited_by: scoreData.lastEditedBy
                     }, {
                         onConflict: 'counselor_id,date'
                     });

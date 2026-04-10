@@ -28,7 +28,42 @@ export const CounselorMethods = {
         const dateKey = this.counselorScoringDate || this.currentDate || Utils.getTodayKey();
         this.counselorScoringDate = dateKey;
         const existingScore = await Store.getCounselorScore(counselorId, dateKey) || { items: {} };
+        const hasSavedScore = existingScore.created_at || existingScore.last_edited_by;
         const currentTotal = Utils.countCounselorTotal(existingScore);
+
+        let auditText = '';
+        if (hasSavedScore) {
+            const lastEditorObj = existingScore.last_edited_by ? users.find(u => u.id === existingScore.last_edited_by) : null;
+            const creatorObj = existingScore.created_by_id ? users.find(u => u.id === existingScore.created_by_id) : null;
+
+            if (lastEditorObj) {
+                auditText = `Última edição por ${lastEditorObj.name}`;
+                if (existingScore.audit_source) auditText += ` (${existingScore.audit_source})`;
+            } else if (existingScore.audit_source === 'LEGACY_MIGRATION') {
+                auditText = `Auditoria: Origem Legada (Sem registro de Editor)`;
+            } else if (creatorObj) {
+                auditText = `Criado por ${creatorObj.name}`;
+                if (existingScore.audit_source) auditText += ` (${existingScore.audit_source})`;
+            } else if (existingScore.created_by) {
+                auditText = `Criado por ${existingScore.created_by}`;
+            } else {
+                auditText = `Auditoria: Origem Legada (Sem registro de Editor)`;
+            }
+        }
+
+        let eventTypeText = '';
+        if (hasSavedScore) {
+            eventTypeText = (existingScore.event_type) 
+                ? `Tipo de Reunião: ${existingScore.event_type}` 
+                : `Tipo de Reunião: Deduzido (Legacy)`;
+        }
+
+        const auditHtml = hasSavedScore ? `
+            <div class="mt-8 mb-4 px-4 flex flex-col items-center justify-center text-[9px] uppercase font-bold tracking-widest text-slate-500/70 text-center">
+                <span class="bg-slate-900/50 px-3 py-1 rounded-full border border-slate-800/50 mb-1">${eventTypeText}</span>
+                <span>${auditText}</span>
+            </div>
+        ` : `<div class="mt-8 mb-4 px-4"></div>`;
 
         const html = `
             <div class="slide-in pb-24">
@@ -111,7 +146,9 @@ export const CounselorMethods = {
                     `).join('')}
                 </div>
                 
-                <div class="fixed bottom-6 left-4 right-4 flex flex-col gap-3">
+                ${auditHtml}
+
+                <div class="fixed bottom-6 left-4 right-4 flex flex-col gap-3 z-40 bg-slate-950/90 backdrop-blur rounded-2xl p-2 border border-slate-800/50">
                     <button onclick="App.saveCounselorScore('${counselorId}')" 
                             class="w-full py-4 rounded-xl font-bold text-white 
                                    bg-brand-navy shadow-xl shadow-brand-navy/30 
@@ -166,8 +203,30 @@ export const CounselorMethods = {
             items[toggle.dataset.id] = toggle.checked;
         });
 
-        const scoreData = { items };
         const saveDate = this.counselorScoringDate || Utils.getTodayKey();
+        
+        let eventType = null;
+        const isImpactoEvent = typeof CONFIG !== 'undefined' && CONFIG.IMPACTO_EVENT && saveDate >= CONFIG.IMPACTO_EVENT.startDate && saveDate <= CONFIG.IMPACTO_EVENT.endDate;
+        const isHolyWeek = typeof CONFIG !== 'undefined' && CONFIG.HOLY_WEEK_EVENT && saveDate >= CONFIG.HOLY_WEEK_EVENT.startDate && saveDate <= CONFIG.HOLY_WEEK_EVENT.endDate;
+        const isPrayerActive = typeof CONFIG !== 'undefined' && CONFIG.PRAYER_EVENT && saveDate >= CONFIG.PRAYER_EVENT.startDate && saveDate <= CONFIG.PRAYER_EVENT.endDate;
+        
+        if (isImpactoEvent) eventType = 'Impacto Esperança';
+        else if (isHolyWeek) eventType = 'Semana Santa';
+        else if (isPrayerActive) eventType = '10 Dias de Oração';
+        else eventType = 'Reunião Regular';
+
+        const maxPointsAvailable = typeof CONFIG !== 'undefined' && CONFIG.COUNSELOR_ITEMS ? CONFIG.COUNSELOR_ITEMS.reduce((sum, item) => sum + item.points, 0) : 100;
+
+        const scoreData = { 
+            items,
+            createdBy: Auth.currentUser?.name || 'Sistema',
+            createdById: Auth.currentUser?.id || null, // UUID for legacy mapping
+            createdAt: new Date().toISOString(),
+            maxPointsAvailable: maxPointsAvailable,
+            eventType: eventType,
+            auditSource: navigator.onLine ? 'PWA_ONLINE' : 'PWA_OFFLINE_SYNC',
+            lastEditedBy: Auth.currentUser?.id || null 
+        };
         await Store.saveCounselorScore(counselorId, saveDate, scoreData);
 
         const isRetroactive = saveDate !== Utils.getTodayKey();
