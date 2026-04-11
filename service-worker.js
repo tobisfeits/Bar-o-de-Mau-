@@ -1,7 +1,7 @@
 // Service Worker for Barão de Mauá PWA - IMPROVED VERSION
 // Auto-update with network-first strategy for critical files
 
-const CACHE_VERSION = '2026.04.10.080'; // v80 - Phase 1: Audit Trail & Immutable Score Metadata
+const CACHE_VERSION = '2026.04.10.081'; // v81 - Phase 2: Coverage Density Rules & Shadow Mode
 const CACHE_NAME = `desbravadores-v${CACHE_VERSION}`;
 const RUNTIME_CACHE = `desbravadores-runtime-v${CACHE_VERSION}`;
 

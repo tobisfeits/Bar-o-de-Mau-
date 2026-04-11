@@ -126,23 +126,47 @@ export const Utils = {
 
     async calculateUnitEfficiencyRange(unitId, start, end) {
         const members = await Store.getMembersByUnit(unitId);
-        if (members.length === 0) return { score: null, coverageText: '0/0', evaluatedCount: 0 };
+        if (members.length === 0) return { score: null, coverageText: '0/0', evaluatedCount: 0, coveragePercentage: 0, isEligible: true };
 
-        const dates = this._dateRange(start, end);
+        const allDates = this._dateRange(start, end);
         const allScores = await Store.getScores();
+        const allMeetings = await Store.getMeetings();
+        
+        // V80 - Fase 2: Source of Truth - Official Meetings Only
+        const validMeetings = allMeetings.filter(m => allDates.includes(m.date));
+        const activeDates = validMeetings.length > 0 ? validMeetings.map(m => m.date) : allDates; // Fallback if no meetings configured
 
         let memberPercentages = [];
-        let evaluatedCount = 0;
+        let evaluatedCount = 0; // members evaluated at least once
+        
+        // V80 - Fase 2: Coverage Density
+        let expectedSlots = 0;
+        let evaluatedSlots = 0;
 
         for (const member of members) {
             let memberTotalGanhos = 0;
             let memberTotalPossivel = 0;
             let hasAnyEvaluation = false;
 
-            for (const dateKey of dates) {
+            const joinedDate = member.created_at ? member.created_at.split('T')[0] : null;
+            const inactiveDate = member.deleted_at ? member.deleted_at.split('T')[0] : null;
+
+            for (const dateKey of activeDates) {
+                // Quorum Verification (Slot Density)
+                let activeOnDate = true;
+                if (joinedDate && dateKey < joinedDate) activeOnDate = false;
+                if (inactiveDate && dateKey >= inactiveDate) activeOnDate = false;
+
                 const dayScores = allScores[dateKey] || {};
                 const score = dayScores[member.id];
-                
+
+                if (activeOnDate) {
+                    expectedSlots++;
+                    if (score !== undefined) {
+                        evaluatedSlots++;
+                    }
+                }
+
                 // Not Evaluated / Null -> Skip. Does not affect denominator.
                 if (score === undefined) continue;
                 
@@ -165,15 +189,22 @@ export const Utils = {
             }
         }
 
+        const coveragePercentage = expectedSlots > 0 ? Math.round((evaluatedSlots / expectedSlots) * 100) : 100;
+        const isEligible = coveragePercentage >= 70; // Hard threshold (Shadow Mode controls UI suppression, but here it's objective)
+
         if (evaluatedCount === 0) {
-            return { score: null, coverageText: `0/${members.length}`, evaluatedCount: 0 };
+            return { score: null, coverageText: `${coveragePercentage}%`, evaluatedCount: 0, coveragePercentage, isEligible, expectedSlots, evaluatedSlots };
         }
 
         const sumEffic = memberPercentages.reduce((a, b) => a + b, 0);
         return { 
             score: sumEffic / evaluatedCount, 
-            coverageText: `${evaluatedCount}/${members.length}`,
-            evaluatedCount 
+            coverageText: `${coveragePercentage}%`,
+            evaluatedCount,
+            coveragePercentage,
+            isEligible,
+            expectedSlots,
+            evaluatedSlots
         };
     },
 

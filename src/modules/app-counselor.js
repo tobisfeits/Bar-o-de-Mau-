@@ -411,7 +411,10 @@ export const CounselorMethods = {
                                 <div class="flex items-center gap-3">
                                     <span class="text-2xl">${medalIndex}</span>
                                     <div>
-                                        <h3 class="font-bold text-white text-sm">${Sanitizer.normalizeName(rank.counselor.name)}</h3>
+                                        <div class="flex items-center gap-2">
+                                            <h3 class="font-bold text-white text-sm">${Sanitizer.normalizeName(rank.counselor.name)}</h3>
+                                            ${rank.isEligible === false ? `<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-orange-500/20 text-orange-400 border border-orange-500/30" title="Alerta Shadow Mode: Você está abaixo dos 70% de mínimo operacional.">⚠️ COB: ${rank.coveragePercentage}%</span>` : ''}
+                                        </div>
                                         <p class="text-[10px] text-slate-500 uppercase tracking-widest mt-0.5">${rank.unit?.name || '—'}</p>
                                     </div>
                                 </div>
@@ -426,7 +429,7 @@ export const CounselorMethods = {
                                 <div class="bg-slate-950 rounded-lg p-2 relative">
                                     <div class="flex justify-between items-center mb-0.5">
                                         <p class="text-[10px] text-slate-500 uppercase tracking-wide">Eficiência (70%)</p>
-                                        <span class="text-[8px] font-bold ${rank.evaluatedCount === 0 ? 'text-red-400 bg-red-400/10' : 'text-slate-400 bg-slate-800'} px-1.5 py-0.5 rounded" title="Cobertura: Membros Avaliados / Total">Cob: ${rank.coverageText}</span>
+                                        <span class="text-[8px] font-bold ${rank.isEligible === false ? 'text-orange-400 bg-orange-500/10 border border-orange-500/20' : 'text-slate-400 bg-slate-800'} px-1.5 py-0.5 rounded" title="Densidade: Slots avaliados / Slots esperados">Cob: ${rank.coverageText}</span>
                                     </div>
                                     <p class="text-sm font-bold text-blue-400">${rank.unitEfficiency.toFixed(1)}%</p>
                                 </div>
