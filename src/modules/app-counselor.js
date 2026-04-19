@@ -23,6 +23,14 @@ export const CounselorMethods = {
             return;
         }
 
+        // V80 - Fase 5: Route Guard (Selective Transparency)
+        const targetUnitId = member.unidade_id || member.unitId;
+        if (window.RBAC && !RBAC.canEvaluateCounselor(counselorId, targetUnitId)) {
+            Toast.show('🔒 Acesso Negado: Apenas a própria unidade ou Diretoria podem acessar estes dados granulares.', 'error');
+            this.navigate('dashboard');
+            return;
+        }
+
         const units = await Store.getUnits();
         const unit = units.find(u => u.id === (member.unidade_id || member.unitId));
         const dateKey = this.counselorScoringDate || this.currentDate || Utils.getTodayKey();
@@ -195,6 +203,14 @@ export const CounselorMethods = {
         const users = await Store.getUsers();
         const member = users.find(u => u.id === counselorId);
         if (!member) return;
+
+        // V80 - Fase 5: Method Block (Anti-Hack)
+        const targetUnitId = member.unidade_id || member.unitId;
+        if (window.RBAC && !RBAC.canEvaluateCounselor(counselorId, targetUnitId)) {
+            console.error("Permission Denied: Unauthorized attempt to save counselor score.");
+            if (window.Toast) Toast.show('🔒 Acesso Negado: Nível hierárquico insuficiente.', 'error');
+            return;
+        }
 
         const scoreToggles = document.querySelectorAll('.counselor-toggle');
         const items = {};
@@ -438,10 +454,12 @@ export const CounselorMethods = {
                                     <p class="text-sm font-bold ${rank.personalScore >= 80 ? 'text-green-400' : 'text-amber-500'}">${rank.personalScore.toFixed(1)}%</p>
                                 </div>
                             </div>
+                            ${(!window.RBAC || RBAC.canEvaluateCounselor(rank.counselor.id, rank.unit?.id)) ? `
                             <button onclick="App.navigate('counselor-evaluation', { counselorId: '${rank.counselor.id}' })"
                                     class="w-full mt-3 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs rounded-lg transition-colors font-bold uppercase tracking-wider">
                                 Ver/Editar Avaliação
                             </button>
+                            ` : ''}
                         </div>
                         `;
                     }).join('')}

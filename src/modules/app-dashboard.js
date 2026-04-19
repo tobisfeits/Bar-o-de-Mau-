@@ -105,9 +105,10 @@ export const DashboardMethods = {
                 visibleUnits = visibleUnits.filter(u => u.name.toLowerCase().includes(query));
             }
 
-            // Check calendar (v51.1 hotfix: move before HTML template)
-            const meetings = await Store.getMeetings();
-            const isMeetingDay = meetings.some(m => m.date === todayKey);
+            // Check calendar (Phase 3A: Official DB Calendar)
+            const calendarCheck = await Store.checkOfficialCalendar(todayKey);
+            const isMeetingDay = calendarCheck.isMeetingDay;
+            const meetingEvent = calendarCheck.event;
 
             const html = `
                 <div class="slide-in pb-20">
@@ -137,11 +138,17 @@ export const DashboardMethods = {
                             `}
 
                             <!-- Meeting Status Label -->
-                            <div id="meeting-label" class="mt-2 hidden">
+                            <div id="meeting-label" class="mt-2 ${isMeetingDay || meetingEvent ? '' : 'hidden'}">
+                                ${isMeetingDay ? `
                                 <span class="bg-brand-gold/10 text-brand-gold text-[10px] font-black uppercase px-2 py-0.5 rounded border border-brand-gold/30 flex items-center gap-1 w-fit">
                                     <i data-lucide="check-circle" class="w-3 h-3"></i>
                                     Dia de Reunião Oficial
-                                </span>
+                                </span>` : 
+                                (meetingEvent && (meetingEvent.is_canceled || meetingEvent.type === 'feriado' || meetingEvent.type === 'recesso')) ? `
+                                <span class="bg-blue-500/10 text-blue-400 text-[10px] font-black uppercase px-2 py-0.5 rounded border border-blue-500/30 flex items-center gap-1 w-fit">
+                                    <i data-lucide="info" class="w-3 h-3"></i>
+                                    ${meetingEvent.description || 'Recesso Oficial / Sem Reunião'}
+                                </span>` : ''}
                             </div>
 
                             <!-- Sync Status Indicator -->

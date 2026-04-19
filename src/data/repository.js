@@ -57,6 +57,33 @@ export const DataAdapter = {
         }
     },
 
+    // CALENDAR EVENTS
+    async getCalendarEvents() {
+        const cached = Cache.get('calendar_events');
+        if (cached) return cached;
+
+        if (this.useSupabase()) {
+            try {
+                const { data, error } = await window.supabaseClient
+                    .from('calendar_events')
+                    .select('*')
+                    .order('date', { ascending: false });
+
+                if (error) throw error;
+                Cache.set('calendar_events', data || []);
+                return data || [];
+            } catch (error) {
+                console.error('Erro ao buscar calendário do Supabase:', error);
+                Toast.show('Modo offline no calendário', 'warning');
+                return this.getCalendarEvents(); // Fallback to DevStorage
+            }
+        } else {
+            const events = DevStorage.get(CONFIG.STORAGE_KEYS.CALENDAR) || [];
+            Cache.set('calendar_events', events);
+            return events;
+        }
+    },
+
     // MEMBERS
     async getMembers() {
         const cached = Cache.get('members');
@@ -138,6 +165,10 @@ export const DataAdapter = {
     },
 
     async inactivateMember(memberId) {
+        if (window.RBAC && !window.RBAC.isSuperAdmin()) {
+            throw new Error('Acesso destrutivo bloqueado. Apenas o Super Admin pode inativar membros.');
+        }
+
         if (this.useSupabase()) {
             const { error } = await window.supabaseClient
                 .from('members')
@@ -153,6 +184,10 @@ export const DataAdapter = {
 
     // Soft delete member (permanent removal with data preservation)
     async deleteMember(memberId) {
+        if (window.RBAC && !window.RBAC.isSuperAdmin()) {
+            throw new Error('Acesso destrutivo bloqueado. Apenas o Super Admin pode deletar membros.');
+        }
+
         if (this.useSupabase()) {
             try {
                 const { error } = await window.supabaseClient
@@ -178,6 +213,10 @@ export const DataAdapter = {
 
     // Restore soft deleted member
     async restoreMember(memberId) {
+        if (window.RBAC && !window.RBAC.isSuperAdmin()) {
+            throw new Error('Acesso destrutivo bloqueado. Apenas o Super Admin pode restaurar membros.');
+        }
+
         if (this.useSupabase()) {
             const { error } = await window.supabaseClient
                 .from('members')
@@ -204,6 +243,10 @@ export const DataAdapter = {
     },
 
     async updateMemberUnit(memberId, unitId, isManual = false) {
+        if (window.RBAC && !window.RBAC.isSuperAdmin()) {
+            throw new Error('Acesso negado. Apenas o Super Admin pode alterar a unidade vinculada a um membro.');
+        }
+
         if (this.useSupabase()) {
             const updateData = { unit_id: unitId };
             if (isManual) {

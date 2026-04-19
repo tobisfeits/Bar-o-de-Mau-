@@ -69,10 +69,11 @@ export const ReportMethods = {
                 { id: 'visao-geral', icon: 'layout-dashboard', label: 'Visão Geral' },
                 { id: 'consultas', icon: 'search', label: 'Consultas' },
                 { id: 'auditoria', icon: 'shield-alert', label: 'Auditoria' },
+                { id: 'omissao', icon: 'user-x', label: 'Omissão' },
                 { id: 'analytics', icon: 'trending-up', label: 'Analytics' },
             ].map(t => `
                         <button onclick="App.setReportTab('${t.id}')" id="rpt-tab-${t.id}"
-                                class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-lg font-bold text-xs transition-all
+                                class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-1 rounded-lg font-bold text-[10px] transition-all
                                        ${this._activeReportTab === t.id ? 'bg-brand-gold text-slate-900 shadow-lg' : 'text-slate-400 hover:text-white'}">
                             <i data-lucide="${t.icon}" class="w-3 h-3"></i>${t.label}
                         </button>
@@ -93,7 +94,7 @@ export const ReportMethods = {
     setReportTab(tab) {
         this._activeReportTab = tab;
         // Update tab button styles
-        ['visao-geral', 'consultas', 'auditoria', 'analytics'].forEach(t => {
+        ['visao-geral', 'consultas', 'auditoria', 'omissao', 'analytics'].forEach(t => {
             const btn = document.getElementById(`rpt-tab-${t}`);
             if (!btn) return;
             if (t === tab) {
@@ -102,9 +103,9 @@ export const ReportMethods = {
                 btn.className = btn.className.replace('bg-brand-gold text-slate-900 shadow-lg', 'text-slate-400 hover:text-white');
             }
         });
-        // Show/hide date range (only useful for Visão Geral)
+        // Show/hide date range (useful for Visão Geral and Omissão)
         const dr = document.getElementById('rpt-daterange');
-        if (dr) dr.classList.toggle('hidden', tab !== 'visao-geral');
+        if (dr) dr.classList.toggle('hidden', tab !== 'visao-geral' && tab !== 'omissao');
         this.renderActiveReportTab();
     },
 
@@ -121,6 +122,7 @@ export const ReportMethods = {
             case 'visao-geral': await this._renderVisaoGeral(container, start, end); break;
             case 'consultas': await this._renderConsultas(container, start, end); break;
             case 'auditoria': await this._renderAuditoria(container); break;
+            case 'omissao': await this._renderOmissao(container, start, end); break;
             case 'analytics': await this._renderAnalytics(container); break;
         }
         if (typeof lucide !== 'undefined') lucide.createIcons();
@@ -1558,23 +1560,7 @@ export const ReportMethods = {
                 }
             }
 
-            // Render Table HTML
-            let rowsHtml = '';
-            if (auditData.length === 0) {
-                rowsHtml = `<tr><td colspan="5" class="py-4 text-center text-slate-500 text-sm">Nenhum dado auditável encontrado nas reuniões oficiais.</td></tr>`;
-            } else {
-                rowsHtml = auditData.map(row => `
-                    <tr class="border-b border-slate-800/80 hover:bg-slate-800 transition-colors">
-                        <td class="px-3 py-3 whitespace-nowrap text-[11px] text-slate-400 font-medium">${Utils.formatDate(row.date)}</td>
-                        <td class="px-3 py-3 whitespace-nowrap text-[11px] font-bold text-brand-gold/80">${row.unit}</td>
-                        <td class="px-3 py-3 whitespace-nowrap text-xs text-slate-200 max-w-[140px] truncate" title="${Sanitizer.normalizeName(row.name)}">${Sanitizer.normalizeName(row.name)}</td>
-                        <td class="px-3 py-3 whitespace-nowrap text-xs font-black">
-                            <span class="px-2 py-1 rounded-md border ${row.statusClass} text-[9px] tracking-wider uppercase flex items-center w-fit">${row.statusLabel}</span>
-                        </td>
-                        <td class="px-3 py-3 whitespace-nowrap text-[10px] text-slate-500 truncate max-w-[90px]" title="${row.author}">${row.author.replace('Sistema ','')}</td>
-                    </tr>
-                `).join('');
-            }
+            // rowsHtml logic removed as we render cards natively over auditData
 
             container.innerHTML = `
                 <div class="space-y-4 animate-fade-in pb-8">
@@ -1585,23 +1571,25 @@ export const ReportMethods = {
                         <span class="text-[10px] bg-slate-800 text-brand-gold font-bold px-2 py-0.5 rounded-full border border-slate-700">Records: ${auditData.length}</span>
                     </div>
 
-                    <div class="bg-slate-900 border border-slate-700 rounded-xl overflow-hidden shadow-2xl">
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left">
-                                <thead class="bg-slate-950 border-b border-slate-700">
-                                    <tr>
-                                        <th class="px-3 py-2.5 text-[10px] font-black uppercase text-slate-500 tracking-wider">Data</th>
-                                        <th class="px-3 py-2.5 text-[10px] font-black uppercase text-slate-500 tracking-wider">Unidade</th>
-                                        <th class="px-3 py-2.5 text-[10px] font-black uppercase text-slate-500 tracking-wider">Membro</th>
-                                        <th class="px-3 py-2.5 text-[10px] font-black uppercase text-slate-500 tracking-wider">Status Real</th>
-                                        <th class="px-3 py-2.5 text-[10px] font-black uppercase text-slate-500 tracking-wider">Assinatura</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${rowsHtml}
-                                </tbody>
-                            </table>
-                        </div>
+                    <div class="space-y-2">
+                        ${auditData.length === 0 ? 
+                            `<div class="p-4 bg-slate-900 border border-slate-800 rounded-xl text-center text-slate-500 text-sm">Nenhum dado auditável encontrado nas reuniões oficiais.</div>` : 
+                            auditData.map(row => `
+                                <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-col gap-2 hover:border-slate-700 transition-colors">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded font-bold uppercase tracking-widest">${Utils.formatDate(row.date)}</span>
+                                            <span class="text-[10px] font-black text-brand-gold uppercase truncate max-w-[120px]">${row.unit}</span>
+                                        </div>
+                                        <span class="text-[9px] text-slate-500 bg-slate-950 px-1.5 py-0.5 rounded uppercase max-w-[100px] truncate" title="${row.author}">${row.author.replace('Sistema ', '')}</span>
+                                    </div>
+                                    <div class="flex items-center justify-between mt-1">
+                                        <p class="text-xs font-bold text-slate-200 truncate pr-2">${Sanitizer.normalizeName(row.name)}</p>
+                                        <span class="px-2 py-0.5 rounded border ${row.statusClass} text-[9px] font-black tracking-wider uppercase whitespace-nowrap">${row.statusLabel}</span>
+                                    </div>
+                                </div>
+                            `).join('')
+                        }
                     </div>
                     <div class="mt-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl">
                         <p class="text-[10px] text-blue-300 leading-relaxed font-medium">🛡️ <strong>Integridade Garantida:</strong> Esta tabela engloba 100% dos relatórios oficiais baseados no cruzamento das reuniões agendadas vs base de Desbravadores. Oculta automaticamente Unidades de Teste e Conselheiros.</p>
@@ -1613,6 +1601,297 @@ export const ReportMethods = {
         } catch (error) {
             console.error('Erro ao renderizar auditoria:', error);
             container.innerHTML = `<div class="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-center text-sm font-bold">Falha de Memória ao montar Data Table.</div>`;
+        } finally {
+            Loading.hide();
+        }
+    },
+
+    // ── Tab 5: Omissão & Penalização (Phase 6 — Gerencial) ──────────────────
+    async _renderOmissao(container, start, end) {
+        // Phase 6 RBAC: Desbravador não acessa
+        if (RBAC.isDesbravador && RBAC.isDesbravador()) {
+            container.innerHTML = `
+                <div class="p-6 bg-red-500/10 border border-red-500/30 rounded-xl text-center">
+                    <i data-lucide="lock" class="w-8 h-8 text-red-400 mx-auto mb-2"></i>
+                    <p class="text-red-300 font-bold text-sm">Acesso Negado</p>
+                    <p class="text-red-400/70 text-xs mt-1">Este painel é restrito à liderança e diretoria.</p>
+                </div>`;
+            return;
+        }
+
+        Loading.show('Gerando Relatório de Omissão...');
+
+        try {
+            const [allMembers, allUnits, allScores, calendarEvents, users] = await Promise.all([
+                Store.getMembers(),
+                Store.getUnits(),
+                Store.getScores(),
+                Store.getCalendarEvents(),
+                Store.getUsers()
+            ]);
+
+            // Filter calendar to official meetings only within date range
+            const officialMeetings = calendarEvents.filter(e =>
+                e.type === 'reuniao_regular' &&
+                !e.is_canceled &&
+                e.date >= start &&
+                e.date <= end
+            ).sort((a, b) => b.date.localeCompare(a.date));
+
+            // Build unit map (exclude TESTE)
+            const visibleUnits = RBAC.filterUnits(allUnits);
+            const visibleUnitIds = new Set(visibleUnits.map(u => u.id));
+            const unitMap = {};
+            visibleUnits.forEach(u => unitMap[u.id] = u.name);
+
+            // Counselors from app_users
+            const counselors = users.filter(u =>
+                (u.role === 'conselheiro' || u.role === 'super_admin') &&
+                u.unidade_id &&
+                visibleUnitIds.has(u.unidade_id)
+            );
+
+            // RBAC: Conselheiro vê apenas a própria unidade
+            const isCrossUnit = RBAC.isSuperAdmin() || (RBAC.isAuditor && RBAC.isAuditor());
+            const userUnitId = RBAC.getUserUnitId ? RBAC.getUserUnitId() : null;
+
+            const filteredCounselors = isCrossUnit
+                ? counselors
+                : counselors.filter(c => c.unidade_id === userUnitId);
+
+            const filteredUnits = isCrossUnit
+                ? visibleUnits
+                : visibleUnits.filter(u => u.id === userUnitId);
+            const filteredUnitIds = new Set(filteredUnits.map(u => u.id));
+
+            // Active members (excluding counselors & TEST units)
+            const activeMembers = allMembers.filter(m =>
+                m.active !== false &&
+                !m.isCounselor &&
+                filteredUnitIds.has(m.unitId)
+            );
+
+            // ── MODULE 1: Omissão por Conselheiro ────────────────────────────
+            const counselorStats = filteredCounselors.map(c => {
+                let filled = 0;
+                for (const meeting of officialMeetings) {
+                    const dayScores = allScores[meeting.date] || {};
+                    // Check if ANY score for this unit was created_by this counselor
+                    const unitMembers = activeMembers.filter(m => m.unitId === c.unidade_id);
+                    const hasAuthoredAny = unitMembers.some(m => {
+                        const s = dayScores[m.id];
+                        return s && (s.createdById === c.id || s.created_by_id === c.id);
+                    });
+                    if (hasAuthoredAny) filled++;
+                }
+                const total = officialMeetings.length;
+                const rate = total > 0 ? Math.round((filled / total) * 100) : null;
+                return {
+                    name: c.name,
+                    unit: unitMap[c.unidade_id] || '?',
+                    filled,
+                    total,
+                    rate
+                };
+            }).sort((a, b) => (b.rate ?? -1) - (a.rate ?? -1));
+
+            // ── MODULE 2: Faltas Automáticas Não Corrigidas ──────────────────
+            let cronUnresolved = [];
+            for (const meeting of officialMeetings) {
+                const dayScores = allScores[meeting.date] || {};
+                for (const member of activeMembers) {
+                    const s = dayScores[member.id];
+                    if (s && s.isAbsent && (s.createdBy === 'SYSTEM_CRON' || s.created_by === 'SYSTEM_CRON') && !s.lastEditedBy && !s.last_edited_by) {
+                        cronUnresolved.push({
+                            date: meeting.date,
+                            name: member.name,
+                            unit: unitMap[member.unitId] || '?'
+                        });
+                    }
+                }
+            }
+
+            // ── MODULE 3: Correções Retroativas ─────────────────────────────
+            let retroCorrections = [];
+            for (const meeting of officialMeetings) {
+                const dayScores = allScores[meeting.date] || {};
+                for (const member of activeMembers) {
+                    const s = dayScores[member.id];
+                    if (s && (s.createdBy === 'SYSTEM_CRON' || s.created_by === 'SYSTEM_CRON') && (s.lastEditedBy || s.last_edited_by)) {
+                        retroCorrections.push({
+                            date: meeting.date,
+                            name: member.name,
+                            unit: unitMap[member.unitId] || '?',
+                            editor: s.lastEditedBy || s.last_edited_by || '?'
+                        });
+                    }
+                }
+            }
+
+            // ── MODULE 4: Visão Agregada por Unidade ─────────────────────────
+            const unitAggregation = filteredUnits.map(unit => {
+                const unitMembers = activeMembers.filter(m => m.unitId === unit.id);
+                let filledSlots = 0;
+                let totalSlots = 0;
+                let unresolvedCron = 0;
+
+                for (const meeting of officialMeetings) {
+                    const dayScores = allScores[meeting.date] || {};
+                    for (const member of unitMembers) {
+                        totalSlots++;
+                        const s = dayScores[member.id];
+                        if (s && (s.createdBy !== 'SYSTEM_CRON' && s.created_by !== 'SYSTEM_CRON')) {
+                            filledSlots++;
+                        } else if (s && (s.createdBy === 'SYSTEM_CRON' || s.created_by === 'SYSTEM_CRON') && !s.lastEditedBy && !s.last_edited_by) {
+                            unresolvedCron++;
+                        }
+                    }
+                }
+                const rate = totalSlots > 0 ? Math.round((filledSlots / totalSlots) * 100) : null;
+                return { name: unit.name, filledSlots, totalSlots, unresolvedCron, rate };
+            }).sort((a, b) => (b.rate ?? -1) - (a.rate ?? -1));
+
+            // ── RENDER ──────────────────────────────────────────────────────
+            const legacyWarning = officialMeetings.length === 0
+                ? `<div class="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl text-yellow-300 text-xs font-medium mb-4">
+                    <i data-lucide="info" class="w-4 h-4 inline mr-1"></i>
+                    Nenhuma reunião oficial encontrada no período selecionado. Verifique se o calendário (<code>calendar_events</code>) está populado.
+                   </div>`
+                : '';
+
+            container.innerHTML = `
+            <div class="space-y-6 animate-fade-in pb-8">
+                <!-- Disclaimer -->
+                <div class="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+                    <p class="text-[10px] text-blue-300 leading-relaxed font-medium">
+                        ⚠️ <strong>Este painel mede organização operacional</strong> (se a chamada foi preenchida a tempo).
+                        Ele <strong>não</strong> reflete o desempenho competitivo da unidade (ranking 70/30), que permanece exclusivamente na aba "Ranking".
+                    </p>
+                </div>
+
+                ${legacyWarning}
+
+                <!-- MODULE 1: Omissão por Conselheiro -->
+                <div>
+                    <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                        <i data-lucide="user-check" class="w-3 h-3"></i>Preenchimento Pontual por Conselheiro
+                    </p>
+                    <div class="space-y-2">
+                        ${counselorStats.length === 0
+                            ? '<div class="p-4 bg-slate-900 border border-slate-800 rounded-xl text-center text-slate-500 text-sm">Nenhum conselheiro encontrado no período.</div>'
+                            : counselorStats.map((c, i) => {
+                                const barColor = c.rate === null ? 'bg-slate-700' : c.rate >= 80 ? 'bg-green-500' : c.rate >= 50 ? 'bg-yellow-500' : 'bg-red-500';
+                                const rateText = c.rate !== null ? `${c.rate}%` : '—';
+                                return `
+                                <div class="bg-slate-900 border border-slate-800 rounded-xl p-3">
+                                    <div class="flex items-center justify-between mb-1">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-xs font-bold text-white truncate max-w-[140px]">${Sanitizer.normalizeName(c.name)}</span>
+                                            <span class="text-[9px] text-brand-gold font-black uppercase">${c.unit}</span>
+                                        </div>
+                                        <span class="text-xs font-black ${c.rate >= 80 ? 'text-green-400' : c.rate >= 50 ? 'text-yellow-400' : 'text-red-400'}">${rateText}</span>
+                                    </div>
+                                    <div class="w-full bg-slate-800 rounded-full h-1.5">
+                                        <div class="${barColor} h-1.5 rounded-full transition-all" style="width: ${c.rate ?? 0}%"></div>
+                                    </div>
+                                    <p class="text-[9px] text-slate-500 mt-1">${c.filled} de ${c.total} reuniões preenchidas pontualmente</p>
+                                </div>`;
+                            }).join('')
+                        }
+                    </div>
+                </div>
+
+                <!-- MODULE 2: Faltas Automáticas Não Corrigidas -->
+                <div>
+                    <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                        <i data-lucide="alert-triangle" class="w-3 h-3 text-red-400"></i>Slots Pendentes Não Resolvidos (SYSTEM_CRON)
+                    </p>
+                    ${cronUnresolved.length === 0
+                        ? '<div class="p-4 bg-green-500/10 border border-green-500/30 rounded-xl text-green-300 text-sm font-medium text-center"><i data-lucide="check-circle" class="w-4 h-4 inline mr-1"></i>Nenhuma falta automática pendente de correção no período.</div>'
+                        : `<div class="bg-slate-900 border border-slate-800 rounded-xl p-3">
+                            <p class="text-xs text-red-300 font-bold mb-2">${cronUnresolved.length} slot(s) sem correção humana</p>
+                            <div class="space-y-1.5 max-h-60 overflow-y-auto">
+                                ${cronUnresolved.slice(0, 50).map(r => `
+                                    <div class="flex items-center justify-between py-1 border-b border-slate-800 last:border-0">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-[9px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded font-bold">${Utils.formatDate(r.date)}</span>
+                                            <span class="text-[10px] text-slate-300 truncate max-w-[120px]">${Sanitizer.normalizeName(r.name)}</span>
+                                        </div>
+                                        <span class="text-[9px] text-brand-gold font-black uppercase">${r.unit}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                           </div>`
+                    }
+                </div>
+
+                <!-- MODULE 3: Correções Retroativas -->
+                <div>
+                    <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                        <i data-lucide="clock" class="w-3 h-3 text-yellow-400"></i>Correções na Janela de 48h
+                    </p>
+                    ${retroCorrections.length === 0
+                        ? '<div class="p-4 bg-slate-900 border border-slate-800 rounded-xl text-center text-slate-500 text-sm">Nenhuma correção retroativa registrada no período.</div>'
+                        : `<div class="bg-slate-900 border border-slate-800 rounded-xl p-3">
+                            <p class="text-xs text-yellow-300 font-bold mb-2">${retroCorrections.length} correção(ões) retroativa(s)</p>
+                            <div class="space-y-1.5 max-h-60 overflow-y-auto">
+                                ${retroCorrections.slice(0, 50).map(r => `
+                                    <div class="flex items-center justify-between py-1 border-b border-slate-800 last:border-0">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-[9px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded font-bold">${Utils.formatDate(r.date)}</span>
+                                            <span class="text-[10px] text-slate-300 truncate max-w-[100px]">${Sanitizer.normalizeName(r.name)}</span>
+                                        </div>
+                                        <div class="flex items-center gap-1">
+                                            <span class="text-[9px] text-brand-gold font-black uppercase">${r.unit}</span>
+                                            <span class="text-[9px] bg-yellow-500/10 text-yellow-400 px-1.5 py-0.5 rounded border border-yellow-500/20 font-bold">✏️ ${r.editor}</span>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                           </div>`
+                    }
+                </div>
+
+                <!-- MODULE 4: Visão Agregada por Unidade -->
+                <div>
+                    <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                        <i data-lucide="building" class="w-3 h-3"></i>Organização Operacional por Unidade
+                    </p>
+                    <div class="space-y-2">
+                        ${unitAggregation.length === 0
+                            ? '<div class="p-4 bg-slate-900 border border-slate-800 rounded-xl text-center text-slate-500 text-sm">Sem dados no período.</div>'
+                            : unitAggregation.map((u, i) => {
+                                const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
+                                const barColor = u.rate === null ? 'bg-slate-700' : u.rate >= 80 ? 'bg-green-500' : u.rate >= 50 ? 'bg-yellow-500' : 'bg-red-500';
+                                const rateText = u.rate !== null ? `${u.rate}%` : '—';
+                                return `
+                                <div class="bg-slate-900 border border-slate-800 rounded-xl p-3">
+                                    <div class="flex items-center justify-between mb-1">
+                                        <span class="text-xs font-black text-white">${medal} ${u.name}</span>
+                                        <span class="text-xs font-black ${u.rate >= 80 ? 'text-green-400' : u.rate >= 50 ? 'text-yellow-400' : 'text-red-400'}">${rateText}</span>
+                                    </div>
+                                    <div class="w-full bg-slate-800 rounded-full h-1.5">
+                                        <div class="${barColor} h-1.5 rounded-full transition-all" style="width: ${u.rate ?? 0}%"></div>
+                                    </div>
+                                    <div class="flex justify-between mt-1">
+                                        <p class="text-[9px] text-slate-500">${u.filledSlots}/${u.totalSlots} slots preenchidos pontualmente</p>
+                                        ${u.unresolvedCron > 0
+                                            ? `<span class="text-[9px] text-red-400 font-bold">${u.unresolvedCron} CRON pendente(s)</span>`
+                                            : ''
+                                        }
+                                    </div>
+                                </div>`;
+                            }).join('')
+                        }
+                    </div>
+                </div>
+            </div>`;
+
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+
+        } catch (error) {
+            console.error('Erro ao renderizar Omissão:', error);
+            container.innerHTML = `<div class="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-center text-sm font-bold">Erro ao carregar relatório de omissão.</div>`;
         } finally {
             Loading.hide();
         }
@@ -1860,36 +2139,38 @@ export const ReportMethods = {
                         <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
                             <i data-lucide="award" class="w-3 h-3 text-indigo-400"></i>Meritocracia de Liderança (70/30)
                         </p>
-                        <div class="bg-slate-900 border border-slate-700 rounded-xl overflow-hidden">
-                            <table class="w-full text-left">
-                                <thead class="bg-slate-950 border-b border-slate-700">
-                                    <tr>
-                                        <th class="px-3 py-2 text-[10px] font-black uppercase text-slate-500">Unidade</th>
-                                        <th class="px-3 py-2 text-[10px] font-black uppercase text-slate-500">Méd.Pts<br><span class="text-[8px] text-indigo-400">70%</span></th>
-                                        <th class="px-3 py-2 text-[10px] font-black uppercase text-slate-500">Aval.<br><span class="text-[8px] text-indigo-400">30%</span></th>
-                                        <th class="px-3 py-2 text-[10px] font-black uppercase text-slate-500">Score</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${counselorMerit.length === 0 ? `<tr><td colspan="4" class="py-4 text-center text-slate-500 text-sm">Sem dados.</td></tr>` :
-                                      counselorMerit.map((c, i) => {
-                                        const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
-                                        return `
-                                        <tr class="border-b border-slate-800/80 hover:bg-slate-800 transition-colors">
-                                            <td class="px-3 py-2.5 text-xs font-bold text-white">${medal} ${c.unit}</td>
-                                            <td class="px-3 py-2.5 text-xs text-brand-gold font-black">${c.unitAvg}</td>
-                                            <td class="px-3 py-2.5">
-                                                <span class="px-1.5 py-0.5 rounded text-[10px] font-black border ${
-                                                    c.evalScore >= 90 ? 'bg-green-500/10 text-green-400 border-green-500/30'
-                                                    : c.evalScore >= 70 ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30'
-                                                    : 'bg-red-500/10 text-red-400 border-red-500/30'
-                                                }">${c.evalLabel}</span>
-                                            </td>
-                                            <td class="px-3 py-2.5 text-sm font-black text-white">${c.finalScore}</td>
-                                        </tr>`;
-                                      }).join('')}
-                                </tbody>
-                            </table>
+                        <div class="space-y-2">
+                            ${counselorMerit.length === 0 ? `<div class="p-4 bg-slate-900 border border-slate-700 rounded-xl text-center text-slate-500 text-sm">Sem dados.</div>` :
+                                counselorMerit.map((c, i) => {
+                                    const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`;
+                                    const evalColor = c.evalScore >= 90 ? 'text-green-400 bg-green-500/10 border-green-500/30'
+                                        : c.evalScore >= 70 ? 'text-yellow-400 bg-yellow-500/10 border-yellow-500/30'
+                                        : 'text-red-400 bg-red-500/10 border-red-500/30';
+                                    return `
+                                    <div class="bg-slate-900 rounded-xl p-3 border border-slate-800 flex flex-col gap-2 relative overflow-hidden">
+                                        <div class="absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-slate-800/20 to-transparent pointer-events-none"></div>
+                                        <div class="flex items-center justify-between">
+                                            <div class="flex items-center gap-2 max-w-[60%]">
+                                                <span class="text-sm font-black flex-shrink-0">${medal}</span>
+                                                <span class="text-sm font-bold text-white uppercase tracking-wider truncate">${c.unit}</span>
+                                            </div>
+                                            <div class="text-right">
+                                                <span class="text-xl font-black text-brand-gold">${c.finalScore}</span>
+                                                <p class="text-[9px] text-slate-500 uppercase tracking-widest mt-[-2px]">Final Score</p>
+                                            </div>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-2 mt-1 border-t border-slate-800 pt-2">
+                                            <div class="flex flex-col">
+                                                <span class="text-[9px] text-slate-500 uppercase font-black">Unidade (70%)</span>
+                                                <span class="text-xs font-black text-blue-400">${c.unitAvg} <span class="opacity-50 text-[10px] font-medium">pts</span></span>
+                                            </div>
+                                            <div class="flex flex-col items-end">
+                                                <span class="text-[9px] text-slate-500 uppercase font-black">Aval. (30%)</span>
+                                                <span class="px-1.5 py-[1px] rounded text-[9px] font-black border ${evalColor} mt-0.5">${c.evalLabel}</span>
+                                            </div>
+                                        </div>
+                                    </div>`;
+                                }).join('')}
                         </div>
                         <p class="text-[9px] text-slate-600 mt-2 text-center">Score = (Méd.Pts ÷ Máx) × 70 + (Avaliação ÷ 100) × 30</p>
                     </div>
@@ -1935,30 +2216,25 @@ export const ReportMethods = {
                                 ${unitFilterOpts}
                             </select>
                         </div>
-                        <div id="top-members-list" class="bg-slate-900 border border-slate-700 rounded-xl overflow-hidden">
-                            <table class="w-full text-left">
-                                <thead class="bg-slate-950 border-b border-slate-700">
-                                    <tr>
-                                        <th class="px-2 py-2 text-[10px] font-black uppercase text-slate-500 w-8">#</th>
-                                        <th class="px-2 py-2 text-[10px] font-black uppercase text-slate-500">Nome</th>
-                                        <th class="px-2 py-2 text-[10px] font-black uppercase text-slate-500">Unid.</th>
-                                        <th class="px-2 py-2 text-[10px] font-black uppercase text-slate-500 text-right">Pts</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${top20.length === 0 ? `<tr><td colspan="4" class="py-4 text-center text-slate-500 text-sm">Sem dados.</td></tr>` :
-                                      top20.map((m, i) => {
-                                        const posIcon = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `<span class="text-slate-500 text-xs">${i+1}</span>`;
-                                        return `
-                                        <tr class="border-b border-slate-800/50 hover:bg-slate-800/50 transition-colors" data-unit="${m.unitId}">
-                                            <td class="px-2 py-2 text-center">${posIcon}</td>
-                                            <td class="px-2 py-2 text-xs font-bold text-white">${m.name}</td>
-                                            <td class="px-2 py-2 text-[10px] text-slate-400">${m.unit}</td>
-                                            <td class="px-2 py-2 text-xs font-black text-brand-gold text-right">${m.totalPts}</td>
-                                        </tr>`;
-                                      }).join('')}
-                                </tbody>
-                            </table>
+                        <div id="top-members-list" class="space-y-1">
+                                    ${top20.length === 0 ? `<div class="p-4 bg-slate-900 border border-slate-700 rounded-xl text-center text-slate-500 text-sm">Sem dados para este período.</div>` :
+                                        top20.map((m, i) => {
+                                            const posIcon = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `<span class="bg-slate-800 px-2 py-0.5 rounded text-slate-400 text-[10px] font-black">#${i + 1}</span>`;
+                                            return `
+                                            <div class="bg-slate-900 rounded-lg p-2.5 border border-slate-800/50 flex flex-col justify-center transition-colors">
+                                                <div class="flex items-center gap-3">
+                                                    <div class="w-8 flex justify-center items-center flex-shrink-0">${posIcon}</div>
+                                                    <div class="flex-1 min-w-0">
+                                                        <p class="text-xs font-bold text-white tracking-wide truncate max-w-[90%]">${m.name}</p>
+                                                        <p class="text-[9px] text-slate-500 uppercase tracking-widest mt-[2px] truncate">${m.unit}</p>
+                                                    </div>
+                                                    <div class="text-right flex flex-col items-end justify-center pl-2 border-l border-slate-800">
+                                                        <span class="text-xs font-black text-brand-gold">${m.totalPts}</span>
+                                                        <p class="text-[8px] text-slate-500 uppercase tracking-wider font-bold">PTS</p>
+                                                    </div>
+                                                </div>
+                                            </div>`;
+                                        }).join('')}
                         </div>
                     </div>
 

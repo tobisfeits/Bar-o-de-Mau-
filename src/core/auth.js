@@ -14,7 +14,8 @@ export const RBAC = {
         CONSELHEIRO: 'conselheiro',
         DIRETORIA: 'diretoria',
         DESBRAVADOR: 'desbravador',
-        AUXILIAR: 'auxiliar'
+        AUXILIAR: 'auxiliar',
+        AUDITOR: 'auditor'
     },
 
     /**
@@ -127,11 +128,19 @@ export const RBAC = {
     },
 
     /**
+     * Check if user is Auditor (Phase 4)
+     * @returns {boolean}
+     */
+    isAuditor() {
+        return this.getUserRole() === this.ROLES.AUDITOR;
+    },
+
+    /**
      * Check if user can view all units
      * @returns {boolean}
      */
     canViewAllUnits() {
-        return this.isSuperAdmin() || this.isAuxiliar();
+        return this.isSuperAdmin() || this.isAuxiliar() || this.isAuditor();
     },
 
     /**
@@ -143,7 +152,7 @@ export const RBAC = {
         // If RBAC data is not loaded, allow access (consistent with filterUnits behavior)
         if (!this.currentUser) return true;
 
-        if (this.isSuperAdmin() || this.isAuxiliar()) return true;
+        if (this.isSuperAdmin() || this.isAuxiliar() || this.isAuditor()) return true;
         if (this.isConselheiro()) return this.getUserUnitId() === unitId;
         if (this.isDesbravador()) {
             // Desbravador can view their own unit (will be checked via member data)
@@ -171,13 +180,36 @@ export const RBAC = {
     },
 
     /**
+     * Check if user is within the 48h Grace Period for CRON retroactive edits
+     * A partir de Quarta-Feira 00:00 (48h apos a reunião de domingo), Conselheiros perdem o acesso.
+     * @param {string} dateKey - The YYYY-MM-DD local format of the meeting
+     * @returns {boolean}
+     */
+    canEditRetroactive(dateKey) {
+        if (!this.currentUser) return true;
+        if (this.isSuperAdmin() || this.isAuxiliar() || this.isAuditor()) return true;
+
+        if (this.isConselheiro()) {
+            // Assume the meeting was Sunday. Grace period ends on Wednesday 00:00.
+            const limitDate = new Date(dateKey + 'T00:00:00-03:00');
+            limitDate.setDate(limitDate.getDate() + 3); // Sunday -> Wednesday
+            
+            const now = new Date();
+            if (now >= limitDate) {
+                return false;
+            }
+        }
+        return true;
+    },
+
+    /**
      * Check if user can edit scores for a member
      * @param {Object} member
      * @returns {boolean}
      */
     canEditMemberScore(member) {
         if (!this.currentUser) return true;
-        if (this.isSuperAdmin() || this.isAuxiliar()) return true;
+        if (this.isSuperAdmin() || this.isAuxiliar() || this.isAuditor()) return true;
         if (this.isConselheiro()) return member.unitId === this.getUserUnitId();
         return false; // Desbravador cannot edit scores
     },
@@ -207,8 +239,24 @@ export const RBAC = {
         // If RBAC data is not loaded, allow access
         if (!this.currentUser) return true;
 
-        if (this.isSuperAdmin() || this.isAuxiliar()) return true;
+        if (this.isSuperAdmin() || this.isAuxiliar() || this.isAuditor()) return true;
         if (this.isConselheiro()) return this.getUserUnitId() === unitId;
+        return false;
+    },
+
+    /**
+     * Check if user can evaluate a counselor (Phase 5 Transparency)
+     * @param {string} counselorId - The targeted counselor's ID
+     * @param {string} counselorUnitId - The targeted counselor's unit ID
+     * @returns {boolean}
+     */
+    canEvaluateCounselor(counselorId, counselorUnitId) {
+        if (!this.currentUser) return true;
+        if (this.isSuperAdmin() || this.isAuditor()) return true;
+        // Allows owner, or a co-leader sharing the same unit.
+        if (this.isConselheiro()) {
+            return this.currentUser.id === counselorId || this.getUserUnitId() === counselorUnitId;
+        }
         return false;
     },
 
@@ -234,7 +282,7 @@ export const RBAC = {
             visibleUnits = units.filter(u => !u.name.toUpperCase().includes('TESTE'));
         }
 
-        if (this.isSuperAdmin() || this.isAuxiliar()) return visibleUnits;
+        if (this.isSuperAdmin() || this.isAuxiliar() || this.isAuditor()) return visibleUnits;
 
         if (this.isConselheiro()) {
             const userUnitId = this.getUserUnitId();

@@ -554,6 +554,37 @@ export const ScoringMethods = {
     },
 
     async saveCurrentScore(memberId, isAutoSave = false) {
+        // V80 - Fase 5: Method Block (Anti-Hack)
+        if (window.RBAC) {
+            const users = await Store.getUsers();
+            const targetMember = users.find(u => u.id === memberId);
+            if (!targetMember || !RBAC.canEvaluateMember(targetMember.unitId)) {
+                console.error("Permission Denied: Unauthorized attempt to save score.");
+                if (window.Toast && !isAutoSave) Toast.show('🔒 Acesso Negado: Nível hierárquico insuficiente.', 'error');
+                return;
+            }
+
+            // Phase 3B - Grace Period Lock for SYSTEM_CRON
+            const allScores = await Store.getScores();
+            const existingScore = allScores[this.scoringDate]?.[memberId];
+            if (existingScore && existingScore.createdBy === 'SYSTEM_CRON') {
+                if (!RBAC.canEditRetroactive(this.scoringDate)) {
+                    if (window.Toast && !isAutoSave) {
+                        Toast.show('🔒 Modo Fechado: O período de graça para corrigir faltas automáticas deste evento expirou.', 'error');
+                    }
+                    if (!isAutoSave) {
+                        const saveBtn = document.getElementById('btn-save-score');
+                        if (saveBtn) {
+                            saveBtn.innerHTML = '<i data-lucide="lock" class="w-5 h-5"></i> Edit Limitado';
+                            saveBtn.classList.remove('opacity-70');
+                        }
+                    }
+                    // Reject save
+                    return;
+                }
+            }
+        }
+
         const statusBg = document.getElementById('status-bg');
         if (!statusBg) return;
 

@@ -48,6 +48,42 @@ export const Store = {
         return await DataAdapter.getUsers();
     },
 
+    async getCalendarEvents() {
+        return await DataAdapter.getCalendarEvents();
+    },
+
+    async checkOfficialCalendar(dateKey) {
+        const events = await this.getCalendarEvents();
+        const eventMatch = events.find(e => e.date === dateKey);
+
+        if (eventMatch) {
+            // Is it explicitly a valid regular meeting?
+            if (eventMatch.type === 'reuniao_regular' && !eventMatch.is_canceled) {
+                return { isMeetingDay: true, event: eventMatch };
+            }
+            return { isMeetingDay: false, event: eventMatch };
+        }
+
+        // FALLBACK: Manual Override (Phase 3A)
+        // If a Super Admin forces a meeting using registerMeeting, it lands here
+        const manualMeetings = await this.getMeetings();
+        const manualMatch = manualMeetings.find(m => m.date === dateKey);
+        
+        if (manualMatch) {
+            return { 
+                isMeetingDay: true, 
+                event: { 
+                    type: 'reuniao_regular', 
+                    description: `Forçada Manualmente por ${manualMatch.created_by || 'Admin'}` 
+                } 
+            };
+        }
+
+        // FAIL-SAFE: If no event in official calendar, IT IS NOT A MEETING. 
+        // This stops blind defaults to Sunday.
+        return { isMeetingDay: false, event: null };
+    },
+
     async getMembersByUnit(unitId) {
         const members = await this.getMembers();
         return members.filter(m => m.unitId === unitId);

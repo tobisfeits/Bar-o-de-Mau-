@@ -22,9 +22,9 @@ function Get-UnitId($name) {
 $epoch = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
 
 $membersToAdd = @(
-    @{ name = "MATEUS FERREIRA LOPES";            birth_date = "2011-06-14"; unit = "Barões" },
-    @{ name = "PEDRO HENRIQUE APOLINÁRIO FEITOSA"; birth_date = "2009-11-29"; unit = "Barões" },
-    @{ name = "NATASHA CASTRO RIOS MAIA";          birth_date = "2013-04-01"; unit = "Duquesas" }
+    @{ name = "TIAGO TESTE";  birth_date = "2010-01-01"; unit = "Teste" },
+    @{ name = "TADEU TESTE";  birth_date = "2011-01-01"; unit = "Teste" },
+    @{ name = "TAMARA TESTE"; birth_date = "2012-01-01"; unit = "Teste" }
 )
 
 $i = 0

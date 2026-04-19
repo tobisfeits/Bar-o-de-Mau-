@@ -38,7 +38,11 @@ export const Utils = {
     },
 
     getTodayKey() {
-        return new Date().toISOString().split('T')[0];
+        const now = new Date();
+        const options = { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' };
+        const dFmt = new Intl.DateTimeFormat('pt-BR', options).format(now);
+        // pt-BR returns DD/MM/YYYY. We need YYYY-MM-DD
+        return dFmt.split('/').reverse().join('-');
     },
 
     formatDate(dateStr) {

@@ -15,14 +15,14 @@
         }
       ]
     },
-    {
-      "source": "/version.json",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, no-store, must-revalidate"
         }
       ]
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron-bulk-absent",
+      "schedule": "55 2 * * 1"
     }
   ]
 }
