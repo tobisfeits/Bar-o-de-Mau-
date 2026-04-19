@@ -14,9 +14,6 @@
           "value": "no-cache, no-store, must-revalidate"
         }
       ]
-    },
-        }
-      ]
     }
   ],
   "crons": [
