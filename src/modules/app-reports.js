@@ -709,27 +709,52 @@ export const ReportMethods = {
         const members = await Store.getMembers();
         const allScores = await Store.getScores();
 
-        const unitStats = units.map(unit => {
-            const unitMembers = members.filter(m => m.unitId === unit.id);
-            let totalPoints = 0, totalPresent = 0, totalEvals = 0;
+        const unitData = {};
+        units.forEach(u => {
+            unitData[u.id] = { ...u, totalPoints: 0, totalPresent: 0, totalEvals: 0, 
+                               activeMemberIds: new Set(), inferredWarning: false };
+        });
 
-            unitMembers.forEach(member => {
-                for (let d = new Date(start + 'T12:00:00'); d <= new Date(end + 'T12:00:00'); d.setDate(d.getDate() + 1)) {
-                    const dateKey = d.toISOString().split('T')[0];
-                    const score = (allScores[dateKey] || {})[member.id];
-                    if (!score) continue;
-                    totalEvals++;
+        for (let d = new Date(start + 'T12:00:00'); d <= new Date(end + 'T12:00:00'); d.setDate(d.getDate() + 1)) {
+            const dateKey = d.toISOString().split('T')[0];
+            const dayScores = allScores[dateKey] || {};
+            
+            for (const member of members) {
+                const score = dayScores[member.id];
+                if (!score) continue;
+
+                // EIXO 2: Vínculo Histórico de Unidade
+                let scoreUnitId = score.unitRecord;
+                let isInferred = false;
+                
+                if (!scoreUnitId) {
+                     scoreUnitId = member.unitId;
+                     isInferred = true;
+                }
+
+                if (unitData[scoreUnitId]) {
+                    unitData[scoreUnitId].totalEvals++;
+                    unitData[scoreUnitId].activeMemberIds.add(member.id);
+                    if (isInferred) unitData[scoreUnitId].inferredWarning = true;
+
                     if (!score.isAbsent) {
-                        totalPresent++;
-                        totalPoints += Utils.countTotal(score);
+                        unitData[scoreUnitId].totalPresent++;
+                        unitData[scoreUnitId].totalPoints += Utils.countTotal(score);
                     }
                 }
-            });
+            }
+        }
 
-            const avgPts = unitMembers.length > 0 ? Math.round(totalPoints / (unitMembers.length || 1)) : 0;
-            const presencePct = totalEvals > 0 ? Math.round((totalPresent / totalEvals) * 100) : 0;
-            return { ...unit, avgPts, totalPoints, presencePct, memberCount: unitMembers.length };
-        }).filter(u => u.memberCount > 0).sort((a, b) => b.avgPts - a.avgPts);
+        const unitStats = Object.values(unitData).map(u => {
+            // Count base: members currently in the unit PLUS any external member who logged points for this unit historically.
+            const currentMembers = members.filter(m => m.unitId === u.id);
+            const allInvolvedIds = new Set([...currentMembers.map(m=>m.id), ...u.activeMemberIds]);
+            const memberCount = allInvolvedIds.size || 1;
+
+            const avgPts = Math.round(u.totalPoints / memberCount);
+            const presencePct = u.totalEvals > 0 ? Math.round((u.totalPresent / u.totalEvals) * 100) : 0;
+            return { ...u, avgPts, presencePct, memberCount };
+        }).filter(u => u.totalEvals > 0).sort((a, b) => b.avgPts - a.avgPts);
 
         const MEDALS = ['🥇', '🥈', '🥉'];
 
@@ -745,8 +770,8 @@ export const ReportMethods = {
                         <div class="flex items-center gap-3 mb-3">
                             <span class="text-2xl">${medal}</span>
                             <div class="flex-1">
-                                <h4 class="font-black text-white">${unit.name}</h4>
-                                <p class="text-[10px] text-slate-500 uppercase font-bold">${unit.memberCount} membros</p>
+                                <h4 class="font-black text-white">${unit.name}${unit.inferredWarning ? '<span class="text-slate-500 font-normal ml-1" title="Alguns dados usam Unidade Atual como inferência">(*)</span>' : ''}</h4>
+                                <p class="text-[10px] text-slate-500 uppercase font-bold">${unit.memberCount} membros avaliados</p>
                             </div>
                             <div class="text-right">
                                 <p class="text-brand-gold font-black text-xl">${unit.avgPts}</p>
@@ -1631,12 +1656,23 @@ export const ReportMethods = {
             ]);
 
             // Filter calendar to official meetings only within date range
-            const officialMeetings = calendarEvents.filter(e =>
+            let officialMeetings = calendarEvents.filter(e =>
                 e.type === 'reuniao_regular' &&
                 !e.is_canceled &&
                 e.date >= start &&
                 e.date <= end
             ).sort((a, b) => b.date.localeCompare(a.date));
+
+            // Graceful Degradation: Fallback para 'meetings' legado se o calendar_events 
+            // ainda não tiver sido populado no Supabase do usuário para este range.
+            if (officialMeetings.length === 0) {
+                const legacyMeetings = await Store.getMeetings();
+                officialMeetings = legacyMeetings.filter(e => e.date >= start && e.date <= end).map(e => ({
+                     date: e.date,
+                     type: 'reuniao_regular',
+                     is_canceled: false
+                })).sort((a, b) => b.date.localeCompare(a.date));
+            }
 
             // Build unit map (exclude TESTE)
             const visibleUnits = RBAC.filterUnits(allUnits);
@@ -1729,35 +1765,50 @@ export const ReportMethods = {
             }
 
             // ── MODULE 4: Visão Agregada por Unidade ─────────────────────────
-            const unitAggregation = filteredUnits.map(unit => {
-                const unitMembers = activeMembers.filter(m => m.unitId === unit.id);
-                let filledSlots = 0;
-                let totalSlots = 0;
-                let unresolvedCron = 0;
+            const unitAggregationMap = {};
+            filteredUnits.forEach(u => unitAggregationMap[u.id] = { name: u.name, filledSlots: 0, totalSlots: 0, unresolvedCron: 0, inferredWarning: false });
 
-                for (const meeting of officialMeetings) {
-                    const dayScores = allScores[meeting.date] || {};
-                    for (const member of unitMembers) {
-                        totalSlots++;
-                        const s = dayScores[member.id];
+            for (const meeting of officialMeetings) {
+                const dayScores = allScores[meeting.date] || {};
+                for (const member of activeMembers) {
+                    const s = dayScores[member.id];
+                    let scoreUnitId = s ? s.unitRecord : member.unitId;
+                    let isInferred = false;
+                    if (s && !s.unitRecord) {
+                        scoreUnitId = member.unitId;
+                        isInferred = true;
+                    }
+
+                    if (unitAggregationMap[scoreUnitId]) {
+                        unitAggregationMap[scoreUnitId].totalSlots++;
+                        if (isInferred) unitAggregationMap[scoreUnitId].inferredWarning = true;
+
                         if (s && (s.createdBy !== 'SYSTEM_CRON' && s.created_by !== 'SYSTEM_CRON')) {
-                            filledSlots++;
+                            unitAggregationMap[scoreUnitId].filledSlots++;
                         } else if (s && (s.createdBy === 'SYSTEM_CRON' || s.created_by === 'SYSTEM_CRON') && !s.lastEditedBy && !s.last_edited_by) {
-                            unresolvedCron++;
+                            unitAggregationMap[scoreUnitId].unresolvedCron++;
                         }
                     }
                 }
-                const rate = totalSlots > 0 ? Math.round((filledSlots / totalSlots) * 100) : null;
-                return { name: unit.name, filledSlots, totalSlots, unresolvedCron, rate };
+            }
+
+            const unitAggregation = Object.values(unitAggregationMap).map(u => {
+                const rate = u.totalSlots > 0 ? Math.round((u.filledSlots / u.totalSlots) * 100) : null;
+                return { ...u, rate };
             }).sort((a, b) => (b.rate ?? -1) - (a.rate ?? -1));
 
             // ── RENDER ──────────────────────────────────────────────────────
-            const legacyWarning = officialMeetings.length === 0
+            const legacyWarning = (officialMeetings.length > 0 && calendarEvents.length === 0)
                 ? `<div class="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl text-yellow-300 text-xs font-medium mb-4">
                     <i data-lucide="info" class="w-4 h-4 inline mr-1"></i>
-                    Nenhuma reunião oficial encontrada no período selecionado. Verifique se o calendário (<code>calendar_events</code>) está populado.
+                    Operando no calendário legado (<code>meetings</code>). A tabela oficial (<code>calendar_events</code>) não possui registros.
                    </div>`
-                : '';
+                : (officialMeetings.length === 0)
+                    ? `<div class="p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-500 text-xs font-medium mb-4">
+                        <i data-lucide="alert-circle" class="w-4 h-4 inline mr-1"></i>
+                        Não há registros de Reuniões em NENHUM calendário no período selecionado.
+                       </div>`
+                    : '';
 
             container.innerHTML = `
             <div class="space-y-6 animate-fade-in pb-8">

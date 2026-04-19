@@ -49,15 +49,38 @@ export const SyncManager = {
      * @param {Object} payload - Data needed to perform the action
      */
     enqueue(type, payload) {
+        let shouldReplace = false;
+        let replaceIndex = -1;
+
+        if (type === 'SAVE_SCORE') {
+            replaceIndex = this.queue.findIndex(i => i.type === type && i.payload.memberId === payload.memberId && i.payload.date === payload.date);
+            shouldReplace = replaceIndex >= 0;
+        } else if (type === 'SAVE_COUNSELOR_SCORE') {
+            replaceIndex = this.queue.findIndex(i => i.type === type && i.payload.counselorId === payload.counselorId && i.payload.date === payload.date);
+            shouldReplace = replaceIndex >= 0;
+        } else if (type === 'SAVE_MEMBER' || type === 'DELETE_MEMBER') {
+            replaceIndex = this.queue.findIndex(i => i.type === type && i.payload.memberId === payload.memberId);
+            shouldReplace = replaceIndex >= 0;
+        } else if (type === 'SAVE_MEETING') {
+            replaceIndex = this.queue.findIndex(i => i.type === type && i.payload.date === payload.date);
+            shouldReplace = replaceIndex >= 0;
+        }
+
         const item = {
-            id: crypto.randomUUID(),
+            id: shouldReplace ? this.queue[replaceIndex].id : crypto.randomUUID(),
             type,
             payload,
             timestamp: new Date().toISOString(),
             retryCount: 0
         };
 
-        this.queue.push(item);
+        if (shouldReplace) {
+             this.queue[replaceIndex] = item;
+             console.log(`Deduplicating sync queue for ${type}`);
+        } else {
+             this.queue.push(item);
+        }
+
         this.saveQueue();
         Toast.show('Sem internet. Salvo na fila para envio automático.', 'info');
     },
@@ -132,6 +155,9 @@ export const SyncManager = {
             case 'SAVE_SCORE':
                 await this.syncScore(payload);
                 break;
+            case 'SAVE_COUNSELOR_SCORE':
+                await this.syncCounselorScore(payload);
+                break;
             case 'SAVE_MEMBER':
                 await this.syncMember(payload);
                 break;
@@ -157,9 +183,37 @@ export const SyncManager = {
                 items: data.items,
                 created_by: data.createdBy,
                 created_by_id: data.createdById,
-                created_at: data.createdAt
+                created_at: data.createdAt,
+                max_points_available: data.maxPointsAvailable,
+                event_type: data.eventType,
+                audit_source: data.auditSource || 'PWA_ONLINE_SYNC',
+                last_edited_by: data.lastEditedBy,
+                unit_record: data.unitRecord
             }, {
                 onConflict: 'member_id,date'
+            });
+
+        if (error) throw error;
+    },
+
+    async syncCounselorScore(payload) {
+        const { counselorId, date, data } = payload;
+        const { error } = await window.supabaseClient
+            .from('counselor_scores')
+            .upsert({
+                counselor_id: counselorId,
+                date: date,
+                items: data.items,
+                created_by: data.createdBy,
+                created_by_id: data.createdById,
+                created_at: data.createdAt,
+                max_points_available: data.maxPointsAvailable,
+                event_type: data.eventType,
+                audit_source: data.auditSource || 'PWA_ONLINE_SYNC',
+                last_edited_by: data.lastEditedBy,
+                unit_record: data.unitRecord
+            }, {
+                onConflict: 'counselor_id,date'
             });
 
         if (error) throw error;

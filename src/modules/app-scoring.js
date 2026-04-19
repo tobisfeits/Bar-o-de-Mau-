@@ -678,6 +678,22 @@ export const ScoringMethods = {
         else if (typeof isPrayerActive !== 'undefined' && isPrayerActive) eventType = '10 Dias de Oração';
         else eventType = 'Reunião Regular';
 
+        // EIXO 2: Vínculo Histórico de Unidade
+        let currentUnitRecord = null;
+        try {
+            const allMembers = await Store.getMembers();
+            const targetMem = allMembers.find(m => m.id === memberId);
+            if (targetMem) {
+                currentUnitRecord = targetMem.unitId;
+            } else {
+                const allUsers = await Store.getUsers();
+                const targetUsr = allUsers.find(u => u.id === memberId);
+                if (targetUsr) currentUnitRecord = targetUsr.unitId;
+            }
+        } catch (e) {
+            console.warn('Could not determine unit for historical record', e);
+        }
+
         const scoreData = { 
             isAbsent, 
             items,
@@ -687,7 +703,8 @@ export const ScoringMethods = {
             maxPointsAvailable: Utils._maxPointsForDate(saveDate),
             eventType: eventType,
             auditSource: navigator.onLine ? 'PWA_ONLINE' : 'PWA_OFFLINE_SYNC',
-            lastEditedBy: Auth.currentUser?.id || null
+            lastEditedBy: Auth.currentUser?.id || null,
+            unitRecord: currentUnitRecord
         };
 
         try {

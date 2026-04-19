@@ -233,6 +233,16 @@ export const CounselorMethods = {
 
         const maxPointsAvailable = typeof CONFIG !== 'undefined' && CONFIG.COUNSELOR_ITEMS ? CONFIG.COUNSELOR_ITEMS.reduce((sum, item) => sum + item.points, 0) : 100;
 
+        // EIXO 2: Vínculo Histórico de Unidade
+        let currentUnitRecord = null;
+        try {
+            const allUsers = await Store.getUsers();
+            const targetUsr = allUsers.find(u => u.id === counselorId);
+            if (targetUsr) currentUnitRecord = targetUsr.unidade_id || targetUsr.unitId;
+        } catch (e) {
+            console.warn('Could not determine unit for counselor historical record', e);
+        }
+
         const scoreData = { 
             items,
             createdBy: Auth.currentUser?.name || 'Sistema',
@@ -241,7 +251,8 @@ export const CounselorMethods = {
             maxPointsAvailable: maxPointsAvailable,
             eventType: eventType,
             auditSource: navigator.onLine ? 'PWA_ONLINE' : 'PWA_OFFLINE_SYNC',
-            lastEditedBy: Auth.currentUser?.id || null 
+            lastEditedBy: Auth.currentUser?.id || null,
+            unitRecord: currentUnitRecord
         };
         await Store.saveCounselorScore(counselorId, saveDate, scoreData);
 

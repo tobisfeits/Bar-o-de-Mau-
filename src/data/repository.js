@@ -369,7 +369,8 @@ export const DataAdapter = {
                         max_points_available: scoreData.maxPointsAvailable,
                         event_type: scoreData.eventType,
                         audit_source: scoreData.auditSource || 'PWA_ONLINE',
-                        last_edited_by: scoreData.lastEditedBy
+                        last_edited_by: scoreData.lastEditedBy,
+                        unit_record: scoreData.unitRecord
                     }, {
                         onConflict: 'member_id,date'
                     });
@@ -467,7 +468,8 @@ export const DataAdapter = {
                         max_points_available: scoreData.maxPointsAvailable,
                         event_type: scoreData.eventType,
                         audit_source: scoreData.auditSource || 'PWA_ONLINE',
-                        last_edited_by: scoreData.lastEditedBy
+                        last_edited_by: scoreData.lastEditedBy,
+                        unit_record: scoreData.unitRecord
                     }, {
                         onConflict: 'counselor_id,date'
                     });
