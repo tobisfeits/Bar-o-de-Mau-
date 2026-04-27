@@ -549,11 +549,14 @@ export const ScoringMethods = {
         }
 
         debounceTimer = setTimeout(() => {
-            this.saveCurrentScore(memberId, true);
+            this.saveCurrentScore(memberId, true).catch(err => {
+                console.warn('Auto-save failed (handled):', err?.message || err);
+            });
         }, 500);
     },
 
     async saveCurrentScore(memberId, isAutoSave = false) {
+      try {
         // V80 - Fase 5: Method Block (Anti-Hack)
         if (window.RBAC) {
             const users = await Store.getUsers();
@@ -697,13 +700,13 @@ export const ScoringMethods = {
         const scoreData = { 
             isAbsent, 
             items,
-            createdBy: Auth.currentUser?.name || 'Sistema',
-            createdById: Auth.currentUser?.id || null, // V80 will use UUID references, keep this for local lookup
+            createdBy: RBAC.currentUser?.name || 'Sistema',
+            createdById: RBAC.currentUser?.id || null, // V80 will use UUID references, keep this for local lookup
             createdAt: new Date().toISOString(),
             maxPointsAvailable: Utils._maxPointsForDate(saveDate),
             eventType: eventType,
             auditSource: navigator.onLine ? 'PWA_ONLINE' : 'PWA_OFFLINE_SYNC',
-            lastEditedBy: Auth.currentUser?.id || null,
+            lastEditedBy: RBAC.currentUser?.id || null,
             unitRecord: currentUnitRecord
         };
 
@@ -742,7 +745,7 @@ export const ScoringMethods = {
                 }
             }
         } catch (error) {
-            console.error('Error saving score:', error);
+            console.error('❌ Error saving score (inner):', error?.message || error, error);
             Toast.show('Falha na conexão. Os dados foram salvos na fila offline e serão enviados depois.', 'warning');
             
             if (isAutoSave) {
@@ -757,6 +760,21 @@ export const ScoringMethods = {
         } finally {
             if (!isAutoSave) Loading.hide();
         }
+      } catch (outerError) {
+        // Catch any error from RBAC checks, Store.getUsers(), Store.getMembers() etc.
+        console.error('❌ Error saving score (outer):', outerError?.message || outerError, outerError);
+        if (!isAutoSave) {
+            Loading.hide();
+            Toast.show('Erro inesperado ao salvar. Verifique o console.', 'error');
+        } else {
+            const saveBtn = document.getElementById('btn-save-score');
+            if (saveBtn) {
+                saveBtn.innerHTML = '<i data-lucide="alert-triangle" class="w-5 h-5"></i> Erro';
+                saveBtn.classList.remove('opacity-70');
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            }
+        }
+      }
     },
 
     changeScoringDate(memberId, newDate) {

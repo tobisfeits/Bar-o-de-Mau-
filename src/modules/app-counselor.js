@@ -245,13 +245,13 @@ export const CounselorMethods = {
 
         const scoreData = { 
             items,
-            createdBy: Auth.currentUser?.name || 'Sistema',
-            createdById: Auth.currentUser?.id || null, // UUID for legacy mapping
+            createdBy: RBAC.currentUser?.name || 'Sistema',
+            createdById: RBAC.currentUser?.id || null, // UUID for legacy mapping
             createdAt: new Date().toISOString(),
             maxPointsAvailable: maxPointsAvailable,
             eventType: eventType,
             auditSource: navigator.onLine ? 'PWA_ONLINE' : 'PWA_OFFLINE_SYNC',
-            lastEditedBy: Auth.currentUser?.id || null,
+            lastEditedBy: RBAC.currentUser?.id || null,
             unitRecord: currentUnitRecord
         };
         await Store.saveCounselorScore(counselorId, saveDate, scoreData);

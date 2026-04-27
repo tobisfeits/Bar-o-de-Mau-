@@ -383,7 +383,15 @@ export const DataAdapter = {
                 
                 if (error) throw error;
             } catch (error) {
-                console.error('Erro ao salvar pontuação (Supabase), salvando na fila offline:', error);
+                console.error('❌ Erro ao salvar pontuação (Supabase):', {
+                    message: error?.message,
+                    code: error?.code,
+                    details: error?.details,
+                    hint: error?.hint,
+                    status: error?.status,
+                    statusText: error?.statusText,
+                    full: error
+                });
 
                 // Enqueue for offline sync
                 const payload = {
