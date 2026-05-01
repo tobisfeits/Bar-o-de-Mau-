@@ -500,6 +500,10 @@ export const DataAdapter = {
         if (!scores[dateKey]) scores[dateKey] = {};
         scores[dateKey][counselorId] = scoreData;
         DevStorage.set(CONFIG.STORAGE_KEYS.COUNSELOR_SCORES, scores);
+
+        // INVALIDATE CACHE so ranking re-fetches fresh data!
+        Cache.clear();
+        this._counselorScoresPromise = null;
     },
 
     // MEETINGS
