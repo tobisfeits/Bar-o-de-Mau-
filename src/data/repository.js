@@ -464,26 +464,42 @@ export const DataAdapter = {
     async saveCounselorScore(counselorId, dateKey, scoreData) {
         if (this.useSupabase()) {
             try {
-                const { error } = await window.supabaseClient
+                const upsertPayload = {
+                    counselor_id: counselorId,
+                    date: dateKey,
+                    items: scoreData.items,
+                    created_by: scoreData.createdBy,
+                    created_by_id: scoreData.createdById,
+                    created_at: scoreData.createdAt,
+                    max_points_available: scoreData.maxPointsAvailable,
+                    event_type: scoreData.eventType,
+                    audit_source: scoreData.auditSource || 'PWA_ONLINE',
+                    last_edited_by: scoreData.lastEditedBy,
+                    unit_record: scoreData.unitRecord
+                };
+                console.log('📤 [COUNSELOR_SCORES] Payload enviado para upsert:', JSON.stringify(upsertPayload, null, 2));
+
+                const { error, data } = await window.supabaseClient
                     .from('counselor_scores')
-                    .upsert({
-                        counselor_id: counselorId,
-                        date: dateKey,
-                        items: scoreData.items,
-                        created_by: scoreData.createdBy,
-                        created_by_id: scoreData.createdById,
-                        created_at: scoreData.createdAt,
-                        max_points_available: scoreData.maxPointsAvailable,
-                        event_type: scoreData.eventType,
-                        audit_source: scoreData.auditSource || 'PWA_ONLINE',
-                        last_edited_by: scoreData.lastEditedBy,
-                        unit_record: scoreData.unitRecord
-                    }, {
+                    .upsert(upsertPayload, {
                         onConflict: 'counselor_id,date'
                     });
-                if (error) throw error;
+
+                if (error) {
+                    console.error('📤 [COUNSELOR_SCORES] Supabase REJEITOU o upsert:', error);
+                    throw error;
+                }
+                console.log('✅ [COUNSELOR_SCORES] Supabase ACEITOU o upsert. Response:', data);
             } catch (error) {
-                console.error('Erro ao salvar avaliação de conselheiro (Supabase), salvando na fila offline:', error);
+                console.error('❌ Erro ao salvar avaliação de conselheiro (Supabase):', {
+                    message: error?.message,
+                    code: error?.code,
+                    details: error?.details,
+                    hint: error?.hint,
+                    status: error?.status,
+                    statusText: error?.statusText,
+                    full: error
+                });
 
                 // Enqueue for offline sync
                 const payload = {
