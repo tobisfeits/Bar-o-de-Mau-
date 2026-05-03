@@ -124,7 +124,7 @@ export const CounselorMethods = {
                 <div class="text-center mb-4">
                     <span class="text-lg font-bold text-slate-400">
                         Avaliação Pessoal: 
-                        <span id="counselor-score-val" class="text-brand-gold">${currentTotal}</span>/100
+                        <span id="counselor-score-val" class="text-brand-gold">${currentTotal}</span> / ${typeof CONFIG !== 'undefined' && CONFIG.TOTAL_COUNSELOR_POINTS ? CONFIG.TOTAL_COUNSELOR_POINTS : 110}
                     </span>
                 </div>
                 
