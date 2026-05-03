@@ -30,6 +30,14 @@ export const AuthMethods = {
             Loading.hide();
         }
 
+        const allowedNames = ['Silas', 'Tobias', 'Diane', 'Vânia', 'Robson', 'Hellen', 'Isabela Campos', 'Victor', 'Larissa Marques', 'Josué'];
+        
+        // Filter users to only include allowed names (case-insensitive and partial match to be safe)
+        users = users.filter(u => {
+            const nameLower = u.name.toLowerCase().trim();
+            return allowedNames.some(allowed => nameLower.includes(allowed.toLowerCase().trim()) || allowed.toLowerCase().trim().includes(nameLower));
+        });
+
         this._loginUsers = users;
 
         const html = `
